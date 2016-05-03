@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -15,8 +15,11 @@ var React;
 var ReactDOM;
 var ReactTestUtils;
 
+var mocks;
+
 describe('ReactComponent', function() {
   beforeEach(function() {
+    mocks = require('mocks');
     React = require('React');
     ReactDOM = require('ReactDOM');
     ReactTestUtils = require('ReactTestUtils');
@@ -255,7 +258,7 @@ describe('ReactComponent', function() {
   });
 
   it('fires the callback after a component is rendered', function() {
-    var callback = jest.fn();
+    var callback = mocks.getMockFunction();
     var container = document.createElement('div');
     ReactDOM.render(<div />, container, callback);
     expect(callback.mock.calls.length).toBe(1);
@@ -263,6 +266,26 @@ describe('ReactComponent', function() {
     expect(callback.mock.calls.length).toBe(2);
     ReactDOM.render(<span />, container, callback);
     expect(callback.mock.calls.length).toBe(3);
+  });
+
+  it('warns when calling getDOMNode', function() {
+    spyOn(console, 'error');
+
+    var Potato = React.createClass({
+      render: function() {
+        return <div />;
+      },
+    });
+    var container = document.createElement('div');
+    var instance = ReactDOM.render(<Potato />, container);
+
+    instance.getDOMNode();
+
+    expect(console.error.calls.length).toBe(1);
+    expect(console.error.calls[0].args[0]).toContain(
+      'Potato.getDOMNode(...) is deprecated. Please use ' +
+      'ReactDOM.findDOMNode(instance) instead.'
+    );
   });
 
   it('throws usefully when rendering badly-typed elements', function() {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,33 +11,25 @@
 
 'use strict';
 
-var React;
-var ReactDOM;
-var ReactDOMServer;
-var ReactMount;
-var ReactTestUtils;
-var WebComponents;
+var mocks = require('mocks');
 
 describe('ReactMount', function() {
-  beforeEach(function() {
-    jest.resetModuleRegistry();
+  var React = require('React');
+  var ReactDOM = require('ReactDOM');
+  var ReactDOMServer = require('ReactDOMServer');
+  var ReactMount = require('ReactMount');
+  var ReactTestUtils = require('ReactTestUtils');
+  var WebComponents = WebComponents;
 
-    React = require('React');
-    ReactDOM = require('ReactDOM');
-    ReactDOMServer = require('ReactDOMServer');
-    ReactMount = require('ReactMount');
-    ReactTestUtils = require('ReactTestUtils');
-
-    try {
-      if (WebComponents === undefined && typeof jest !== 'undefined') {
-        WebComponents = require('WebComponents');
-      }
-    } catch (e) {
-      // Parse error expected on engines that don't support setters
-      // or otherwise aren't supportable by the polyfill.
-      // Leave WebComponents undefined.
+  try {
+    if (WebComponents === undefined && typeof jest !== 'undefined') {
+      WebComponents = require('WebComponents');
     }
-  });
+  } catch (e) {
+    // Parse error expected on engines that don't support setters
+    // or otherwise aren't supportable by the polyfill.
+    // Leave WebComponents undefined.
+  }
 
   describe('unmountComponentAtNode', function() {
     it('throws when given a non-node', function() {
@@ -54,8 +46,9 @@ describe('ReactMount', function() {
     expect(function() {
       ReactTestUtils.renderIntoDocument('div');
     }).toThrow(
-      'ReactDOM.render(): Invalid component element. Instead of passing a ' +
-      'string like \'div\', pass React.createElement(\'div\') or <div />.'
+      'ReactDOM.render(): Invalid component element. Instead of passing an ' +
+      'element string, make sure to instantiate it by passing it to ' +
+      'React.createElement.'
     );
   });
 
@@ -69,7 +62,8 @@ describe('ReactMount', function() {
       ReactTestUtils.renderIntoDocument(Component);
     }).toThrow(
       'ReactDOM.render(): Invalid component element. Instead of passing a ' +
-      'class like Foo, pass React.createElement(Foo) or <Foo />.'
+      'component class, make sure to instantiate it by passing it to ' +
+      'React.createElement.'
     );
   });
 
@@ -87,8 +81,8 @@ describe('ReactMount', function() {
   it('should unmount and remount if the key changes', function() {
     var container = document.createElement('container');
 
-    var mockMount = jest.fn();
-    var mockUnmount = jest.fn();
+    var mockMount = mocks.getMockFunction();
+    var mockUnmount = mocks.getMockFunction();
 
     var Component = React.createClass({
       componentDidMount: mockMount,
@@ -158,7 +152,7 @@ describe('ReactMount', function() {
     ReactMount.render(<div />, iFrame.contentDocument.body);
 
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'Rendering components directly into document.body is discouraged'
     );
   });
@@ -175,7 +169,7 @@ describe('ReactMount', function() {
       div
     );
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       ' (client) nbsp entity: &nbsp; client text</div>\n' +
       ' (server) nbsp entity: &nbsp; server text</div>'
     );
@@ -204,6 +198,31 @@ describe('ReactMount', function() {
     });
   }
 
+  it('warns when using two copies of React before throwing', function() {
+    require('mock-modules').dumpCache();
+    var RD1 = require('ReactDOM');
+    require('mock-modules').dumpCache();
+    var RD2 = require('ReactDOM');
+
+    var X = React.createClass({
+      render: function() {
+        return <div />;
+      },
+    });
+
+    var container = document.createElement('div');
+    spyOn(console, 'error');
+    var component = RD1.render(<X />, container);
+    expect(console.error.argsForCall.length).toBe(0);
+
+    // This fails but logs a warning first
+    expect(function() {
+      RD2.findDOMNode(component);
+    }).toThrow();
+    expect(console.error.argsForCall.length).toBe(1);
+    expect(console.error.argsForCall[0][0]).toContain('two copies of React');
+  });
+
   it('should warn if render removes React-rendered children', function() {
     var container = document.createElement('container');
     var Component = React.createClass({
@@ -217,13 +236,68 @@ describe('ReactMount', function() {
     spyOn(console, 'error');
     var rootNode = container.firstChild;
     ReactDOM.render(<span />, rootNode);
-    expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.callCount).toBe(1);
+    expect(console.error.mostRecentCall.args[0]).toBe(
       'Warning: render(...): Replacing React-rendered children with a new ' +
       'root component. If you intended to update the children of this node, ' +
       'you should instead have the existing children update their state and ' +
       'render the new components instead of calling ReactDOM.render.'
     );
+  });
+
+  it('should not crash in node cache when unmounting', function() {
+    var Component = React.createClass({
+      render: function() {
+        // Add refs to some nodes so that they get traversed and cached
+        return (
+          <div ref="a">
+            <div ref="b">b</div>
+            {this.props.showC && <div>c</div>}
+          </div>
+        );
+      },
+    });
+
+    var container = document.createElement('container');
+
+    ReactDOM.render(<div><Component showC={false} /></div>, container);
+
+    // Right now, A and B are in the cache. When we add C, it won't get added to
+    // the cache (assuming markup-string mode).
+    ReactDOM.render(<div><Component showC={true} /></div>, container);
+
+    // Remove A, B, and C. Unmounting C shouldn't cause B to get recached.
+    ReactDOM.render(<div></div>, container);
+
+    // Add them back -- this shouldn't cause a cached node collision.
+    ReactDOM.render(<div><Component showC={true} /></div>, container);
+
+    ReactDOM.unmountComponentAtNode(container);
+  });
+
+  it('should not crash in node cache when unmounting, case 2', function() {
+    var A = React.createClass({
+      render: function() {
+        return <a key={this.props.innerKey}>{this.props.innerKey}</a>;
+      },
+    });
+    var Component = React.createClass({
+      render: function() {
+        return (
+          <b>
+            <i>{this.props.step === 1 && <q />}</i>
+            {this.props.step === 1 && <A innerKey={this.props.step} />}
+          </b>
+        );
+      },
+    });
+
+    var container = document.createElement('container');
+
+    ReactDOM.render(<Component step={1} />, container);
+    ReactDOM.render(<Component step={2} />, container);
+    ReactDOM.render(<Component step={1} />, container);
+    ReactMount.getID(container.querySelector('a'));
   });
 
   it('passes the correct callback context', function() {
@@ -264,48 +338,5 @@ describe('ReactMount', function() {
     });
 
     expect(calls).toBe(5);
-  });
-
-  it('tracks root instances', function() {
-    // Used by devtools.
-    expect(Object.keys(ReactMount._instancesByReactRootID).length).toBe(0);
-    ReactTestUtils.renderIntoDocument(<span />);
-    expect(Object.keys(ReactMount._instancesByReactRootID).length).toBe(1);
-    var container = document.createElement('div');
-    ReactDOM.render(<span />, container);
-    expect(Object.keys(ReactMount._instancesByReactRootID).length).toBe(2);
-    ReactDOM.unmountComponentAtNode(container);
-    expect(Object.keys(ReactMount._instancesByReactRootID).length).toBe(1);
-  });
-
-  it('marks top-level mounts', function() {
-    var ReactFeatureFlags = require('ReactFeatureFlags');
-
-    var Foo = React.createClass({
-      render: function() {
-        return <Bar />;
-      },
-    });
-
-    var Bar = React.createClass({
-      render: function() {
-        return <div />;
-      },
-    });
-
-    try {
-      ReactFeatureFlags.logTopLevelRenders = true;
-      spyOn(console, 'time');
-      spyOn(console, 'timeEnd');
-
-      ReactTestUtils.renderIntoDocument(<Foo />);
-
-      expect(console.time.argsForCall.length).toBe(1);
-      expect(console.time.argsForCall[0][0]).toBe('React mount: Foo');
-      expect(console.timeEnd.argsForCall.length).toBe(1);
-      expect(console.timeEnd.argsForCall[0][0]).toBe('React mount: Foo');
-    } finally {
-      ReactFeatureFlags.logTopLevelRenders = false;
-    }
   });
 });

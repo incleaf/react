@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -62,9 +62,11 @@ describe('ReactES6Class', function() {
     expect(() => ReactDOM.render(<Foo />, container)).toThrow();
 
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.calls[0].args[0]).toBe(
       'Warning: Foo(...): No `render` method found on the returned component ' +
-      'instance: you may have forgotten to define `render`.'
+      'instance: you may have forgotten to define `render`, returned ' +
+      'null/false from a stateless component, or tried to render an element ' +
+      'whose type is a function that isn\'t a React component.'
     );
   });
 
@@ -340,16 +342,16 @@ describe('ReactES6Class', function() {
     expect(getInitialStateWasCalled).toBe(false);
     expect(getDefaultPropsWasCalled).toBe(false);
     expect(console.error.calls.length).toBe(4);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'getInitialState was defined on Foo, a plain JavaScript class.'
     );
-    expect(console.error.argsForCall[1][0]).toContain(
+    expect(console.error.calls[1].args[0]).toContain(
       'getDefaultProps was defined on Foo, a plain JavaScript class.'
     );
-    expect(console.error.argsForCall[2][0]).toContain(
+    expect(console.error.calls[2].args[0]).toContain(
       'propTypes was defined as an instance property on Foo.'
     );
-    expect(console.error.argsForCall[3][0]).toContain(
+    expect(console.error.calls[3].args[0]).toContain(
       'contextTypes was defined as an instance property on Foo.'
     );
   });
@@ -368,7 +370,7 @@ describe('ReactES6Class', function() {
     test(<NamedComponent />, 'SPAN', 'foo');
 
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.calls[0].args[0]).toBe(
       'Warning: ' +
       'NamedComponent has a method called componentShouldUpdate(). Did you ' +
       'mean shouldComponentUpdate()? The name is phrased as a question ' +
@@ -390,7 +392,7 @@ describe('ReactES6Class', function() {
     test(<NamedComponent />, 'SPAN', 'foo');
 
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.calls[0].args[0]).toBe(
       'Warning: ' +
       'NamedComponent has a method called componentWillRecieveProps(). Did ' +
       'you mean componentWillReceiveProps()?'
@@ -400,16 +402,27 @@ describe('ReactES6Class', function() {
   it('should throw AND warn when trying to access classic APIs', function() {
     spyOn(console, 'error');
     var instance = test(<Inner name="foo" />, 'DIV', 'foo');
+    expect(() => instance.getDOMNode()).toThrow();
     expect(() => instance.replaceState({})).toThrow();
     expect(() => instance.isMounted()).toThrow();
     expect(() => instance.setProps({name: 'bar'})).toThrow();
     expect(() => instance.replaceProps({name: 'bar'})).toThrow();
-    expect(console.error.calls.length).toBe(2);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls.length).toBe(5);
+    expect(console.error.calls[0].args[0]).toContain(
+      'getDOMNode(...) is deprecated in plain JavaScript React classes. ' +
+      'Use ReactDOM.findDOMNode(component) instead.'
+    );
+    expect(console.error.calls[1].args[0]).toContain(
       'replaceState(...) is deprecated in plain JavaScript React classes'
     );
-    expect(console.error.argsForCall[1][0]).toContain(
+    expect(console.error.calls[2].args[0]).toContain(
       'isMounted(...) is deprecated in plain JavaScript React classes'
+    );
+    expect(console.error.calls[3].args[0]).toContain(
+      'setProps(...) is deprecated in plain JavaScript React classes'
+    );
+    expect(console.error.calls[4].args[0]).toContain(
+      'replaceProps(...) is deprecated in plain JavaScript React classes'
     );
   });
 

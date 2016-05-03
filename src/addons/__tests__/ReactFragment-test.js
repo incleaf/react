@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-present, Facebook, Inc.
+ * Copyright 2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -85,7 +85,7 @@ describe('ReactFragment', function() {
     spyOn(console, 'error');
     ReactFragment.create(null);
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'React.addons.createFragment only accepts a single object.'
     );
   });
@@ -94,7 +94,7 @@ describe('ReactFragment', function() {
     spyOn(console, 'error');
     ReactFragment.create([]);
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'React.addons.createFragment only accepts a single object.'
     );
   });
@@ -103,7 +103,7 @@ describe('ReactFragment', function() {
     spyOn(console, 'error');
     ReactFragment.create(<div />);
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'React.addons.createFragment does not accept a ReactElement without a ' +
       'wrapper object.'
     );

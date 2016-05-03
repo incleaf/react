@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -18,17 +18,17 @@ describe('ReactDOMProduction', function() {
   var ReactDOM;
 
   beforeEach(function() {
-    __DEV__ = false;
+    __DEV__ = true;
     oldProcess = process;
     global.process = {env: {NODE_ENV: 'production'}};
 
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
     React = require('React');
     ReactDOM = require('ReactDOM');
   });
 
   afterEach(function() {
-    __DEV__ = true;
+    __DEV__ = false;
     global.process = oldProcess;
   });
 

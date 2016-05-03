@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -14,10 +14,8 @@
 describe('ReactDefaultPerf', function() {
   var React;
   var ReactDOM;
-  var ReactDOMFeatureFlags;
   var ReactDefaultPerf;
   var ReactTestUtils;
-  var ReactDefaultPerfAnalysis;
 
   var App;
   var Box;
@@ -25,31 +23,24 @@ describe('ReactDefaultPerf', function() {
 
   beforeEach(function() {
     var now = 0;
-    jest.setMock('fbjs/lib/performanceNow', function() {
+    require('mock-modules').setMock('performanceNow', function() {
       return now++;
     });
 
-    if (typeof console.table !== 'function') {
-      console.table = () => {};
-      console.table.isFake = true;
-    }
-
     React = require('React');
     ReactDOM = require('ReactDOM');
-    ReactDOMFeatureFlags = require('ReactDOMFeatureFlags');
     ReactDefaultPerf = require('ReactDefaultPerf');
     ReactTestUtils = require('ReactTestUtils');
-    ReactDefaultPerfAnalysis = require('ReactDefaultPerfAnalysis');
 
     App = React.createClass({
       render: function() {
-        return <div><Box /><Box flip={this.props.flipSecond} /></div>;
+        return <div><Box /><Box /></div>;
       },
     });
 
     Box = React.createClass({
       render: function() {
-        return <div key={!!this.props.flip}><input /></div>;
+        return <div><input /></div>;
       },
     });
 
@@ -61,17 +52,11 @@ describe('ReactDefaultPerf', function() {
     });
   });
 
-  afterEach(function() {
-    if (console.table.isFake) {
-      delete console.table;
-    }
-  });
-
   function measure(fn) {
     ReactDefaultPerf.start();
     fn();
     ReactDefaultPerf.stop();
-    return ReactDefaultPerf.getLastMeasurements().__unstable_this_format_will_change;
+    return ReactDefaultPerf.getLastMeasurements();
   }
 
   it('should count no-op update as waste', function() {
@@ -81,7 +66,7 @@ describe('ReactDefaultPerf', function() {
       ReactDOM.render(<App />, container);
     });
 
-    var summary = ReactDefaultPerf.getWasted(measurements);
+    var summary = ReactDefaultPerf.getMeasurementsSummaryMap(measurements);
     expect(summary.length).toBe(2);
 
     /*eslint-disable dot-notation */
@@ -97,31 +82,9 @@ describe('ReactDefaultPerf', function() {
     /*eslint-enable dot-notation */
   });
 
-  it('should count no-op update in child as waste', function() {
-    var container = document.createElement('div');
-    ReactDOM.render(<App />, container);
-
-    // Here, we add a Box -- two of the <Box /> updates are wasted time (but the
-    // addition of the third is not)
-    var measurements = measure(() => {
-      ReactDOM.render(<App flipSecond={true} />, container);
-    });
-
-    var summary = ReactDefaultPerf.getWasted(measurements);
-    expect(summary.length).toBe(1);
-
-    /*eslint-disable dot-notation */
-
-    expect(summary[0]['Owner > component']).toBe('App > Box');
-    expect(summary[0]['Wasted time (ms)']).not.toBe(0);
-    expect(summary[0]['Instances']).toBe(1);
-
-    /*eslint-enable dot-notation */
-  });
-
   function expectNoWaste(fn) {
     var measurements = measure(fn);
-    var summary = ReactDefaultPerf.getWasted(measurements);
+    var summary = ReactDefaultPerf.getMeasurementsSummaryMap(measurements);
     expect(summary).toEqual([]);
   }
 
@@ -179,6 +142,14 @@ describe('ReactDefaultPerf', function() {
     });
   });
 
+  it('should not count listener update as waste', function() {
+    var container = document.createElement('div');
+    ReactDOM.render(<Div onClick={function() {}}>hey</Div>, container);
+    expectNoWaste(() => {
+      ReactDOM.render(<Div onClick={function() {}}>hey</Div>, container);
+    });
+  });
+
   it('should not count property removal as waste', function() {
     var container = document.createElement('div');
     ReactDOM.render(<Div className="yellow">hey</Div>, container);
@@ -215,85 +186,6 @@ describe('ReactDefaultPerf', function() {
     expectNoWaste(() => {
       ReactDOM.render(<Div>{'hello'}{'friend'}</Div>, container);
     });
-  });
-
-  it('putListener should not be instrumented', function() {
-    var container = document.createElement('div');
-    ReactDOM.render(<Div onClick={function() {}}>hey</Div>, container);
-    var measurements = measure(() => {
-      ReactDOM.render(<Div onClick={function() {}}>hey</Div>, container);
-    });
-
-    var summary = ReactDefaultPerfAnalysis.getDOMSummary(measurements);
-    expect(summary).toEqual([]);
-  });
-
-  it('deleteListener should not be instrumented', function() {
-    var container = document.createElement('div');
-    ReactDOM.render(<Div onClick={function() {}}>hey</Div>, container);
-    var measurements = measure(() => {
-      ReactDOM.render(<Div>hey</Div>, container);
-    });
-
-    var summary = ReactDefaultPerfAnalysis.getDOMSummary(measurements);
-    expect(summary).toEqual([]);
-  });
-
-  it('should not fail on input change events', function() {
-    var container = document.createElement('div');
-    var onChange = () => {};
-    var input = ReactDOM.render(
-      <input checked={true} onChange={onChange} />,
-      container
-    );
-    expectNoWaste(() => {
-      ReactTestUtils.Simulate.change(input);
-    });
-  });
-
-  it('should print a table after calling printOperations', function() {
-    var container = document.createElement('div');
-    var measurements = measure(() => {
-      ReactDOM.render(<Div>hey</Div>, container);
-    });
-    spyOn(console, 'table');
-    ReactDefaultPerf.printOperations(measurements);
-    expect(console.table.calls.length).toBe(1);
-    expect(console.table.argsForCall[0][0]).toEqual([{
-      'data-reactid': '',
-      type: 'set innerHTML',
-      args: ReactDOMFeatureFlags.useCreateElement ?
-        '{"node":"<not serializable>","children":[],"html":null,"text":null}' :
-        '"<div data-reactroot=\\"\\" data-reactid=\\"1\\">hey</div>"',
-    }]);
-  });
-
-  it('warns once when using getMeasurementsSummaryMap', function() {
-    var measurements = measure(() => {});
-    spyOn(console, 'error');
-    ReactDefaultPerf.getMeasurementsSummaryMap(measurements);
-    expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
-      '`ReactPerf.getMeasurementsSummaryMap(...)` is deprecated. Use ' +
-      '`ReactPerf.getWasted(...)` instead.'
-    );
-
-    ReactDefaultPerf.getMeasurementsSummaryMap(measurements);
-    expect(console.error.calls.length).toBe(1);
-  });
-
-  it('warns once when using printDOM', function() {
-    var measurements = measure(() => {});
-    spyOn(console, 'error');
-    ReactDefaultPerf.printDOM(measurements);
-    expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
-      '`ReactPerf.printDOM(...)` is deprecated. Use ' +
-      '`ReactPerf.printOperations(...)` instead.'
-    );
-
-    ReactDefaultPerf.printDOM(measurements);
-    expect(console.error.calls.length).toBe(1);
   });
 
 });

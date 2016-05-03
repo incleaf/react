@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -14,7 +14,6 @@
 var EventConstants = require('EventConstants');
 var EventPropagators = require('EventPropagators');
 var ExecutionEnvironment = require('ExecutionEnvironment');
-var ReactDOMComponentTree = require('ReactDOMComponentTree');
 var ReactInputSelection = require('ReactInputSelection');
 var SyntheticEvent = require('SyntheticEvent');
 
@@ -50,12 +49,12 @@ var eventTypes = {
 };
 
 var activeElement = null;
-var activeElementInst = null;
+var activeElementID = null;
 var lastSelection = null;
 var mouseDown = false;
 
 // Track whether a listener exists for this plugin. If none exist, we do
-// not extract events. See #3639.
+// not extract events.
 var hasListener = false;
 var ON_SELECT_KEY = keyOf({onSelect: null});
 
@@ -118,7 +117,7 @@ function constructSelectEvent(nativeEvent, nativeEventTarget) {
 
     var syntheticEvent = SyntheticEvent.getPooled(
       eventTypes.select,
-      activeElementInst,
+      activeElementID,
       nativeEvent,
       nativeEventTarget
     );
@@ -152,32 +151,37 @@ var SelectEventPlugin = {
 
   eventTypes: eventTypes,
 
+  /**
+   * @param {string} topLevelType Record from `EventConstants`.
+   * @param {DOMEventTarget} topLevelTarget The listening component root node.
+   * @param {string} topLevelTargetID ID of `topLevelTarget`.
+   * @param {object} nativeEvent Native browser event.
+   * @return {*} An accumulation of synthetic events.
+   * @see {EventPluginHub.extractEvents}
+   */
   extractEvents: function(
-    topLevelType,
-    targetInst,
-    nativeEvent,
-    nativeEventTarget
-  ) {
+      topLevelType,
+      topLevelTarget,
+      topLevelTargetID,
+      nativeEvent,
+      nativeEventTarget) {
     if (!hasListener) {
       return null;
     }
 
-    var targetNode = targetInst ?
-      ReactDOMComponentTree.getNodeFromInstance(targetInst) : window;
-
     switch (topLevelType) {
       // Track the input node that has focus.
       case topLevelTypes.topFocus:
-        if (isTextInputElement(targetNode) ||
-            targetNode.contentEditable === 'true') {
-          activeElement = targetNode;
-          activeElementInst = targetInst;
+        if (isTextInputElement(topLevelTarget) ||
+            topLevelTarget.contentEditable === 'true') {
+          activeElement = topLevelTarget;
+          activeElementID = topLevelTargetID;
           lastSelection = null;
         }
         break;
       case topLevelTypes.topBlur:
         activeElement = null;
-        activeElementInst = null;
+        activeElementID = null;
         lastSelection = null;
         break;
 
@@ -213,7 +217,7 @@ var SelectEventPlugin = {
     return null;
   },
 
-  didPutListener: function(inst, registrationName, listener) {
+  didPutListener: function(id, registrationName, listener) {
     if (registrationName === ON_SELECT_KEY) {
       hasListener = true;
     }

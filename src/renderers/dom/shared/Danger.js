@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -7,11 +7,11 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule Danger
+ * @typechecks static-only
  */
 
 'use strict';
 
-var DOMLazyTree = require('DOMLazyTree');
 var ExecutionEnvironment = require('ExecutionEnvironment');
 
 var createNodesFromMarkup = require('createNodesFromMarkup');
@@ -165,19 +165,20 @@ var Danger = {
     );
     invariant(markup, 'dangerouslyReplaceNodeWithMarkup(...): Missing markup.');
     invariant(
-      oldChild.nodeName !== 'HTML',
+      oldChild.tagName.toLowerCase() !== 'html',
       'dangerouslyReplaceNodeWithMarkup(...): Cannot replace markup of the ' +
       '<html> node. This is because browser quirks make this unreliable ' +
       'and/or slow. If you want to render to the root you must use ' +
       'server rendering. See ReactDOMServer.renderToString().'
     );
 
+    var newChild;
     if (typeof markup === 'string') {
-      var newChild = createNodesFromMarkup(markup, emptyFunction)[0];
-      oldChild.parentNode.replaceChild(newChild, oldChild);
+      newChild = createNodesFromMarkup(markup, emptyFunction)[0];
     } else {
-      DOMLazyTree.replaceChildWithTree(oldChild, markup);
+      newChild = markup;
     }
+    oldChild.parentNode.replaceChild(newChild, oldChild);
   },
 
 };

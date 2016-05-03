@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -15,19 +15,19 @@ var EnterLeaveEventPlugin;
 var EventConstants;
 var React;
 var ReactDOM;
-var ReactDOMComponentTree;
+var ReactMount;
 
 var topLevelTypes;
 
 describe('EnterLeaveEventPlugin', function() {
   beforeEach(function() {
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
 
     EnterLeaveEventPlugin = require('EnterLeaveEventPlugin');
     EventConstants = require('EventConstants');
     React = require('React');
     ReactDOM = require('ReactDOM');
-    ReactDOMComponentTree = require('ReactDOMComponentTree');
+    ReactMount = require('ReactMount');
 
     topLevelTypes = EventConstants.topLevelTypes;
   });
@@ -48,7 +48,8 @@ describe('EnterLeaveEventPlugin', function() {
 
     var extracted = EnterLeaveEventPlugin.extractEvents(
       topLevelTypes.topMouseOver,
-      ReactDOMComponentTree.getInstanceFromNode(div),
+      div,
+      ReactMount.getID(div),
       {target: div},
       div
     );

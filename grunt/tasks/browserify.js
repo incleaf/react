@@ -5,7 +5,7 @@ var grunt = require('grunt');
 
 module.exports = function() {
   var config = this.data;
-
+  console.log(this);
   // This task is async...
   var done = this.async();
 
@@ -16,15 +16,18 @@ module.exports = function() {
   config.globalTransforms = config.globalTransforms || [];
   config.plugins = config.plugins || [];
   config.after = config.after || [];
+  config.paths = config.paths || [];
 
   // create the bundle we'll work with
   var entries = grunt.file.expand(config.entries);
+  var paths = grunt.file.expand(config.paths);
 
   // Extract other options
   var options = {
     entries: entries,
     debug: config.debug, // sourcemaps
     standalone: config.standalone, // global
+    paths: paths,
   };
 
   var bundle = browserify(options);

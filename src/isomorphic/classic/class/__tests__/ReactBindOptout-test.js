@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,6 +11,7 @@
 /*global global:true*/
 'use strict';
 
+var mocks = require('mocks');
 var React = require('React');
 var ReactTestUtils = require('ReactTestUtils');
 var reactComponentExpect = require('reactComponentExpect');
@@ -20,9 +21,9 @@ describe('autobind optout', function() {
 
   it('should work with manual binding', function() {
 
-    var mouseDidEnter = jest.fn();
-    var mouseDidLeave = jest.fn();
-    var mouseDidClick = jest.fn();
+    var mouseDidEnter = mocks.getMockFunction();
+    var mouseDidLeave = mocks.getMockFunction();
+    var mouseDidClick = mocks.getMockFunction();
 
     var TestBindComponent = React.createClass({
       autobind: false,
@@ -138,7 +139,7 @@ describe('autobind optout', function() {
   });
 
   it('works with mixins that have not opted out of autobinding', function() {
-    var mouseDidClick = jest.fn();
+    var mouseDidClick = mocks.getMockFunction();
 
     var TestMixin = {
       onClick: mouseDidClick,
@@ -164,7 +165,7 @@ describe('autobind optout', function() {
   });
 
   it('works with mixins that have opted out of autobinding', function() {
-    var mouseDidClick = jest.fn();
+    var mouseDidClick = mocks.getMockFunction();
 
     var TestMixin = {
       autobind: false,

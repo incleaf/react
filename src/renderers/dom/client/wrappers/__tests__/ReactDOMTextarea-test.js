@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,6 +12,7 @@
 'use strict';
 
 var emptyFunction = require('emptyFunction');
+var mocks = require('mocks');
 
 describe('ReactDOMTextarea', function() {
   var React;
@@ -237,16 +238,10 @@ describe('ReactDOMTextarea', function() {
   });
 
   it('should support ReactLink', function() {
-    var link = new ReactLink('yolo', jest.fn());
+    var link = new ReactLink('yolo', mocks.getMockFunction());
     var instance = <textarea valueLink={link} />;
 
-    spyOn(console, 'error');
     instance = renderTextarea(instance);
-    expect(console.error.argsForCall.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
-      '`valueLink` prop on `textarea` is deprecated; set `value` and `onChange` instead.'
-    );
-
 
     expect(ReactDOM.findDOMNode(instance).value).toBe('yolo');
     expect(link.value).toBe('yolo');
@@ -263,38 +258,5 @@ describe('ReactDOMTextarea', function() {
     var container = document.createElement('div');
     renderTextarea(<textarea />, container);
     ReactDOM.unmountComponentAtNode(container);
-  });
-
-  it('should warn if value is null', function() {
-    spyOn(console, 'error');
-
-    ReactTestUtils.renderIntoDocument(<textarea value={null} />);
-    expect(console.error.argsForCall[0][0]).toContain(
-      '`value` prop on `textarea` should not be null. ' +
-      'Consider using the empty string to clear the component or `undefined` ' +
-      'for uncontrolled components.'
-    );
-
-    ReactTestUtils.renderIntoDocument(<textarea value={null} />);
-    expect(console.error.argsForCall.length).toBe(1);
-  });
-
-  it('should warn if value and defaultValue are specified', function() {
-    spyOn(console, 'error');
-    ReactTestUtils.renderIntoDocument(
-      <textarea value="foo" defaultValue="bar" readOnly={true} />
-    );
-    expect(console.error.argsForCall[0][0]).toContain(
-      'Textarea elements must be either controlled or uncontrolled ' +
-      '(specify either the value prop, or the defaultValue prop, but not ' +
-      'both). Decide between using a controlled or uncontrolled textarea ' +
-      'and remove one of these props. More info: ' +
-      'https://fb.me/react-controlled-components'
-    );
-
-    ReactTestUtils.renderIntoDocument(
-      <textarea value="foo" defaultValue="bar" readOnly={true} />
-    );
-    expect(console.error.argsForCall.length).toBe(1);
   });
 });

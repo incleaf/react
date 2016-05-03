@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -22,7 +22,7 @@ var invariant = require('invariant');
  * of children.
  *
  * @param {?object} children Child collection structure.
- * @return {ReactElement} The first and only `ReactElement` contained in the
+ * @return {ReactComponent} The first and only `ReactComponent` contained in the
  * structure.
  */
 function onlyChild(children) {

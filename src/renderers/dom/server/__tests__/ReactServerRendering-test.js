@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,6 +11,8 @@
 
 'use strict';
 
+var mocks = require('mocks');
+
 var ExecutionEnvironment;
 var React;
 var ReactDOM;
@@ -20,11 +22,10 @@ var ReactTestUtils;
 var ReactServerRendering;
 
 var ID_ATTRIBUTE_NAME;
-var ROOT_ATTRIBUTE_NAME;
 
 describe('ReactServerRendering', function() {
   beforeEach(function() {
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
     React = require('React');
     ReactDOM = require('ReactDOM');
     ReactMarkupChecksum = require('ReactMarkupChecksum');
@@ -37,7 +38,7 @@ describe('ReactServerRendering', function() {
 
     var DOMProperty = require('DOMProperty');
     ID_ATTRIBUTE_NAME = DOMProperty.ID_ATTRIBUTE_NAME;
-    ROOT_ATTRIBUTE_NAME = DOMProperty.ROOT_ATTRIBUTE_NAME;
+    spyOn(console, 'error');
   });
 
   describe('renderToString', function() {
@@ -46,8 +47,7 @@ describe('ReactServerRendering', function() {
         <span>hello world</span>
       );
       expect(response).toMatch(
-        '<span ' + ROOT_ATTRIBUTE_NAME + '="" ' +
-          ID_ATTRIBUTE_NAME + '="[^"]+" ' +
+        '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+" ' +
           ReactMarkupChecksum.CHECKSUM_ATTR_NAME + '="[^"]+">hello world</span>'
       );
     });
@@ -57,8 +57,7 @@ describe('ReactServerRendering', function() {
         <img />
       );
       expect(response).toMatch(
-        '<img ' + ROOT_ATTRIBUTE_NAME + '="" ' +
-          ID_ATTRIBUTE_NAME + '="[^"]+" ' +
+        '<img ' + ID_ATTRIBUTE_NAME + '="[^"]+" ' +
           ReactMarkupChecksum.CHECKSUM_ATTR_NAME + '="[^"]+"/>'
       );
     });
@@ -68,25 +67,14 @@ describe('ReactServerRendering', function() {
         <img data-attr=">" />
       );
       expect(response).toMatch(
-        '<img data-attr="&gt;" ' + ROOT_ATTRIBUTE_NAME + '="" ' +
-          ID_ATTRIBUTE_NAME + '="[^"]+" ' +
+        '<img data-attr="&gt;" ' + ID_ATTRIBUTE_NAME + '="[^"]+" ' +
           ReactMarkupChecksum.CHECKSUM_ATTR_NAME + '="[^"]+"/>'
       );
     });
 
-    it('should generate comment markup for component returns null', function() {
-      var NullComponent = React.createClass({
-        render: function() {
-          return null;
-        },
-      });
-      var response = ReactServerRendering.renderToString(<NullComponent />);
-      expect(response).toBe('<!-- react-empty: 1 -->');
-    });
-
     it('should not register event listeners', function() {
       var EventPluginHub = require('EventPluginHub');
-      var cb = jest.fn();
+      var cb = mocks.getMockFunction();
 
       ReactServerRendering.renderToString(
         <span onClick={cb}>hello world</span>
@@ -109,12 +97,11 @@ describe('ReactServerRendering', function() {
         <Parent />
       );
       expect(response).toMatch(
-        '<div ' + ROOT_ATTRIBUTE_NAME + '="" ' +
-          ID_ATTRIBUTE_NAME + '="[^"]+" ' +
+        '<div ' + ID_ATTRIBUTE_NAME + '="[^"]+" ' +
           ReactMarkupChecksum.CHECKSUM_ATTR_NAME + '="[^"]+">' +
           '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+">' +
-            '<!-- react-text: [0-9]+ -->My name is <!-- /react-text -->' +
-            '<!-- react-text: [0-9]+ -->child<!-- /react-text -->' +
+            '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+">My name is </span>' +
+            '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+">child</span>' +
           '</span>' +
         '</div>'
       );
@@ -160,11 +147,10 @@ describe('ReactServerRendering', function() {
         );
 
         expect(response).toMatch(
-          '<span ' + ROOT_ATTRIBUTE_NAME + '="" ' +
-            ID_ATTRIBUTE_NAME + '="[^"]+" ' +
+          '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+" ' +
             ReactMarkupChecksum.CHECKSUM_ATTR_NAME + '="[^"]+">' +
-            '<!-- react-text: [0-9]+ -->Component name: <!-- /react-text -->' +
-            '<!-- react-text: [0-9]+ -->TestComponent<!-- /react-text -->' +
+            '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+">Component name: </span>' +
+            '<span ' + ID_ATTRIBUTE_NAME + '="[^"]+">TestComponent</span>' +
           '</span>'
         );
         expect(lifecycle).toEqual(
@@ -241,7 +227,6 @@ describe('ReactServerRendering', function() {
       // Now simulate a situation where the app is not idempotent. React should
       // warn but do the right thing.
       element.innerHTML = lastMarkup;
-      spyOn(console, 'error');
       var instance = ReactDOM.render(<TestComponent name="y" />, element);
       expect(mountCount).toEqual(4);
       expect(console.error.argsForCall.length).toBe(1);
@@ -303,7 +288,7 @@ describe('ReactServerRendering', function() {
 
     it('should not register event listeners', function() {
       var EventPluginHub = require('EventPluginHub');
-      var cb = jest.fn();
+      var cb = mocks.getMockFunction();
 
       ReactServerRendering.renderToString(
         <span onClick={cb}>hello world</span>
@@ -370,7 +355,8 @@ describe('ReactServerRendering', function() {
           'not a component'
         )
       ).toThrow(
-        'renderToStaticMarkup(): You must pass a valid ReactElement.'
+        'renderToStaticMarkup(): You must pass ' +
+        'a valid ReactElement.'
       );
     });
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-present, Facebook, Inc.
+ * Copyright 2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,27 +12,16 @@
 'use strict';
 
 var ReactCurrentOwner = require('ReactCurrentOwner');
+var ReactElement = require('ReactElement');
 var ReactInstanceMap = require('ReactInstanceMap');
 var ReactUpdates = require('ReactUpdates');
 
+var assign = require('Object.assign');
 var invariant = require('invariant');
 var warning = require('warning');
 
 function enqueueUpdate(internalInstance) {
   ReactUpdates.enqueueUpdate(internalInstance);
-}
-
-function formatUnexpectedArgument(arg) {
-  var type = typeof arg;
-  if (type !== 'object') {
-    return type;
-  }
-  var displayName = arg.constructor && arg.constructor.name || type;
-  var keys = Object.keys(arg);
-  if (keys.length > 0 && keys.length < 20) {
-    return `${displayName} (keys: ${keys.join(', ')})`;
-  }
-  return displayName;
 }
 
 function getInternalInstanceReadyForUpdate(publicInstance, callerName) {
@@ -58,11 +47,9 @@ function getInternalInstanceReadyForUpdate(publicInstance, callerName) {
   if (__DEV__) {
     warning(
       ReactCurrentOwner.current == null,
-      '%s(...): Cannot update during an existing state transition (such as ' +
-      'within `render` or another component\'s constructor). Render methods ' +
-      'should be a pure function of props and state; constructor ' +
-      'side-effects are an anti-pattern, but can be moved to ' +
-      '`componentWillMount`.',
+      '%s(...): Cannot update during an existing state transition ' +
+      '(such as within `render`). Render methods should be a pure function ' +
+      'of props and state.',
       callerName
     );
   }
@@ -116,11 +103,15 @@ var ReactUpdateQueue = {
    *
    * @param {ReactClass} publicInstance The instance to use as `this` context.
    * @param {?function} callback Called after state is updated.
-   * @param {string} callerName Name of the calling function in the public API.
    * @internal
    */
-  enqueueCallback: function(publicInstance, callback, callerName) {
-    ReactUpdateQueue.validateCallback(callback, callerName);
+  enqueueCallback: function(publicInstance, callback) {
+    invariant(
+      typeof callback === 'function',
+      'enqueueCallback(...): You called `setProps`, `replaceProps`, ' +
+      '`setState`, `replaceState`, or `forceUpdate` with a callback that ' +
+      'isn\'t callable.'
+    );
     var internalInstance = getInternalInstanceReadyForUpdate(publicInstance);
 
     // Previously we would throw an error if we didn't have an internal
@@ -145,6 +136,12 @@ var ReactUpdateQueue = {
   },
 
   enqueueCallbackInternal: function(internalInstance, callback) {
+    invariant(
+      typeof callback === 'function',
+      'enqueueCallback(...): You called `setProps`, `replaceProps`, ' +
+      '`setState`, `replaceState`, or `forceUpdate` with a callback that ' +
+      'isn\'t callable.'
+    );
     if (internalInstance._pendingCallbacks) {
       internalInstance._pendingCallbacks.push(callback);
     } else {
@@ -236,19 +233,94 @@ var ReactUpdateQueue = {
     enqueueUpdate(internalInstance);
   },
 
+  /**
+   * Sets a subset of the props.
+   *
+   * @param {ReactClass} publicInstance The instance that should rerender.
+   * @param {object} partialProps Subset of the next props.
+   * @internal
+   */
+  enqueueSetProps: function(publicInstance, partialProps) {
+    var internalInstance = getInternalInstanceReadyForUpdate(
+      publicInstance,
+      'setProps'
+    );
+    if (!internalInstance) {
+      return;
+    }
+    ReactUpdateQueue.enqueueSetPropsInternal(internalInstance, partialProps);
+  },
+
+  enqueueSetPropsInternal: function(internalInstance, partialProps) {
+    var topLevelWrapper = internalInstance._topLevelWrapper;
+    invariant(
+      topLevelWrapper,
+      'setProps(...): You called `setProps` on a ' +
+      'component with a parent. This is an anti-pattern since props will ' +
+      'get reactively updated when rendered. Instead, change the owner\'s ' +
+      '`render` method to pass the correct value as props to the component ' +
+      'where it is created.'
+    );
+
+    // Merge with the pending element if it exists, otherwise with existing
+    // element props.
+    var wrapElement = topLevelWrapper._pendingElement ||
+                      topLevelWrapper._currentElement;
+    var element = wrapElement.props;
+    var props = assign({}, element.props, partialProps);
+    topLevelWrapper._pendingElement = ReactElement.cloneAndReplaceProps(
+      wrapElement,
+      ReactElement.cloneAndReplaceProps(element, props)
+    );
+
+    enqueueUpdate(topLevelWrapper);
+  },
+
+  /**
+   * Replaces all of the props.
+   *
+   * @param {ReactClass} publicInstance The instance that should rerender.
+   * @param {object} props New props.
+   * @internal
+   */
+  enqueueReplaceProps: function(publicInstance, props) {
+    var internalInstance = getInternalInstanceReadyForUpdate(
+      publicInstance,
+      'replaceProps'
+    );
+    if (!internalInstance) {
+      return;
+    }
+    ReactUpdateQueue.enqueueReplacePropsInternal(internalInstance, props);
+  },
+
+  enqueueReplacePropsInternal: function(internalInstance, props) {
+    var topLevelWrapper = internalInstance._topLevelWrapper;
+    invariant(
+      topLevelWrapper,
+      'replaceProps(...): You called `replaceProps` on a ' +
+      'component with a parent. This is an anti-pattern since props will ' +
+      'get reactively updated when rendered. Instead, change the owner\'s ' +
+      '`render` method to pass the correct value as props to the component ' +
+      'where it is created.'
+    );
+
+    // Merge with the pending element if it exists, otherwise with existing
+    // element props.
+    var wrapElement = topLevelWrapper._pendingElement ||
+                      topLevelWrapper._currentElement;
+    var element = wrapElement.props;
+    topLevelWrapper._pendingElement = ReactElement.cloneAndReplaceProps(
+      wrapElement,
+      ReactElement.cloneAndReplaceProps(element, props)
+    );
+
+    enqueueUpdate(topLevelWrapper);
+  },
+
   enqueueElementInternal: function(internalInstance, newElement) {
     internalInstance._pendingElement = newElement;
     enqueueUpdate(internalInstance);
-  },
-
-  validateCallback: function(callback, callerName) {
-    invariant(
-      !callback || typeof callback === 'function',
-      '%s(...): Expected the last optional `callback` argument to be a ' +
-      'function. Instead received: %s.',
-      callerName,
-      formatUnexpectedArgument(callback)
-    );
   },
 
 };

@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -15,18 +15,15 @@ var EventConstants = require('EventConstants');
 var EventPluginHub = require('EventPluginHub');
 var EventPropagators = require('EventPropagators');
 var ExecutionEnvironment = require('ExecutionEnvironment');
-var ReactDOMComponentTree = require('ReactDOMComponentTree');
 var ReactUpdates = require('ReactUpdates');
 var SyntheticEvent = require('SyntheticEvent');
 
-var inputValueTracking = require('inputValueTracking');
 var getEventTarget = require('getEventTarget');
 var isEventSupported = require('isEventSupported');
 var isTextInputElement = require('isTextInputElement');
 var keyOf = require('keyOf');
 
 var topLevelTypes = EventConstants.topLevelTypes;
-
 
 var eventTypes = {
   change: {
@@ -47,24 +44,13 @@ var eventTypes = {
   },
 };
 
-function createAndAccumulateChangeEvent(inst, nativeEvent, target) {
-  var event = SyntheticEvent.getPooled(
-    eventTypes.change,
-    inst,
-    nativeEvent,
-    target
-  );
-  event.type = 'change';
-  EventPropagators.accumulateTwoPhaseDispatches(event);
-  return event;
-}
 /**
  * For IE shims
  */
 var activeElement = null;
-var activeElementInst = null;
-
-
+var activeElementID = null;
+var activeElementValue = null;
+var activeElementValueProp = null;
 
 /**
  * SECTION: handle `change` event
@@ -86,11 +72,13 @@ if (ExecutionEnvironment.canUseDOM) {
 }
 
 function manualDispatchChangeEvent(nativeEvent) {
-  var event = createAndAccumulateChangeEvent(
-    activeElementInst,
+  var event = SyntheticEvent.getPooled(
+    eventTypes.change,
+    activeElementID,
     nativeEvent,
     getEventTarget(nativeEvent)
   );
+  EventPropagators.accumulateTwoPhaseDispatches(event);
 
   // If change and propertychange bubbled, we'd just bind to it like all the
   // other events and have it go through ReactBrowserEventEmitter. Since it
@@ -111,9 +99,9 @@ function runEventInBatch(event) {
   EventPluginHub.processEventQueue(false);
 }
 
-function startWatchingForChangeEventIE8(target, targetInst) {
+function startWatchingForChangeEventIE8(target, targetID) {
   activeElement = target;
-  activeElementInst = targetInst;
+  activeElementID = targetID;
   activeElement.attachEvent('onchange', manualDispatchChangeEvent);
 }
 
@@ -123,34 +111,28 @@ function stopWatchingForChangeEventIE8() {
   }
   activeElement.detachEvent('onchange', manualDispatchChangeEvent);
   activeElement = null;
-  activeElementInst = null;
+  activeElementID = null;
 }
 
-function getInstIfValueChanged(targetInst) {
-  if (inputValueTracking.updateValueIfChanged(targetInst)) {
-    return targetInst;
-  }
-}
-
-function getTargetInstForChangeEvent(
+function getTargetIDForChangeEvent(
   topLevelType,
-  targetInst
+  topLevelTarget,
+  topLevelTargetID
 ) {
   if (topLevelType === topLevelTypes.topChange) {
-    return targetInst;
+    return topLevelTargetID;
   }
 }
-
 function handleEventsForChangeEventIE8(
   topLevelType,
-  target,
-  targetInst
+  topLevelTarget,
+  topLevelTargetID
 ) {
   if (topLevelType === topLevelTypes.topFocus) {
     // stopWatching() should be a noop here but we call it just in case we
     // missed a blur event somehow.
     stopWatchingForChangeEventIE8();
-    startWatchingForChangeEventIE8(target, targetInst);
+    startWatchingForChangeEventIE8(topLevelTarget, topLevelTargetID);
   } else if (topLevelType === topLevelTypes.topBlur) {
     stopWatchingForChangeEventIE8();
   }
@@ -163,54 +145,103 @@ function handleEventsForChangeEventIE8(
 var isInputEventSupported = false;
 if (ExecutionEnvironment.canUseDOM) {
   // IE9 claims to support the input event but fails to trigger it when
-  // deleting text, so we ignore its input events.
+  // deleting text, so we ignore its input events
   isInputEventSupported = isEventSupported('input') && (
     !('documentMode' in document) || document.documentMode > 9
   );
 }
 
+/**
+ * (For old IE.) Replacement getter/setter for the `value` property that gets
+ * set on the active element.
+ */
+var newValueProp = {
+  get: function() {
+    return activeElementValueProp.get.call(this);
+  },
+  set: function(val) {
+    // Cast to a string so we can do equality checks.
+    activeElementValue = '' + val;
+    activeElementValueProp.set.call(this, val);
+  },
+};
 
 /**
- * (For IE <=9) Starts tracking propertychange events on the passed-in element
+ * (For old IE.) Starts tracking propertychange events on the passed-in element
  * and override the value property so that we can distinguish user events from
  * value changes in JS.
  */
-function startWatchingForValueChange(target, targetInst) {
+function startWatchingForValueChange(target, targetID) {
   activeElement = target;
-  activeElementInst = targetInst;
+  activeElementID = targetID;
+  activeElementValue = target.value;
+  activeElementValueProp = Object.getOwnPropertyDescriptor(
+    target.constructor.prototype,
+    'value'
+  );
+
+  // Not guarded in a canDefineProperty check: IE8 supports defineProperty only
+  // on DOM elements
+  Object.defineProperty(activeElement, 'value', newValueProp);
   activeElement.attachEvent('onpropertychange', handlePropertyChange);
 }
 
 /**
- * (For IE <=9) Removes the event listeners from the currently-tracked element,
+ * (For old IE.) Removes the event listeners from the currently-tracked element,
  * if any exists.
  */
 function stopWatchingForValueChange() {
   if (!activeElement) {
     return;
   }
+
+  // delete restores the original property definition
+  delete activeElement.value;
   activeElement.detachEvent('onpropertychange', handlePropertyChange);
+
   activeElement = null;
-  activeElementInst = null;
+  activeElementID = null;
+  activeElementValue = null;
+  activeElementValueProp = null;
 }
 
 /**
- * (For IE <=9) Handles a propertychange event, sending a `change` event if
+ * (For old IE.) Handles a propertychange event, sending a `change` event if
  * the value of the active element has changed.
  */
 function handlePropertyChange(nativeEvent) {
   if (nativeEvent.propertyName !== 'value') {
     return;
   }
-  if (getInstIfValueChanged(activeElementInst)) {
-    manualDispatchChangeEvent(nativeEvent);
+  var value = nativeEvent.srcElement.value;
+  if (value === activeElementValue) {
+    return;
+  }
+  activeElementValue = value;
+
+  manualDispatchChangeEvent(nativeEvent);
+}
+
+/**
+ * If a `change` event should be fired, returns the target's ID.
+ */
+function getTargetIDForInputEvent(
+  topLevelType,
+  topLevelTarget,
+  topLevelTargetID
+) {
+  if (topLevelType === topLevelTypes.topInput) {
+    // In modern browsers (i.e., not IE8 or IE9), the input event is exactly
+    // what we want so fall through here and trigger an abstract event
+    return topLevelTargetID;
   }
 }
 
-function handleEventsForInputEventPolyfill(
+// For IE8 and IE9.
+function handleEventsForInputEventIE(
   topLevelType,
-  target,
-  targetInst
+  topLevelTarget,
+  topLevelTargetID
 ) {
   if (topLevelType === topLevelTypes.topFocus) {
     // In IE8, we can capture almost all .value changes by adding a
@@ -227,16 +258,17 @@ function handleEventsForInputEventPolyfill(
     // stopWatching() should be a noop here but we call it just in case we
     // missed a blur event somehow.
     stopWatchingForValueChange();
-    startWatchingForValueChange(target, targetInst);
+    startWatchingForValueChange(topLevelTarget, topLevelTargetID);
   } else if (topLevelType === topLevelTypes.topBlur) {
     stopWatchingForValueChange();
   }
 }
 
 // For IE8 and IE9.
-function getTargetInstForInputEventPolyfill(
+function getTargetIDForInputEventIE(
   topLevelType,
-  targetInst
+  topLevelTarget,
+  topLevelTargetID
 ) {
   if (topLevelType === topLevelTypes.topSelectionChange ||
       topLevelType === topLevelTypes.topKeyUp ||
@@ -251,7 +283,10 @@ function getTargetInstForInputEventPolyfill(
     // keystroke if user does a key repeat (it'll be a little delayed: right
     // before the second keystroke). Other input methods (e.g., paste) seem to
     // fire selectionchange normally.
-    return getInstIfValueChanged(activeElementInst);
+    if (activeElement && activeElement.value !== activeElementValue) {
+      activeElementValue = activeElement.value;
+      return activeElementID;
+    }
   }
 }
 
@@ -263,31 +298,19 @@ function shouldUseClickEvent(elem) {
   // Use the `click` event to detect changes to checkbox and radio inputs.
   // This approach works across all browsers, whereas `change` does not fire
   // until `blur` in IE8.
-  var nodeName = elem.nodeName;
   return (
-    (nodeName && nodeName.toLowerCase() === 'input') &&
+    (elem.nodeName && elem.nodeName.toLowerCase() === 'input') &&
     (elem.type === 'checkbox' || elem.type === 'radio')
   );
 }
 
-function getTargetInstForClickEvent(
+function getTargetIDForClickEvent(
   topLevelType,
-  targetInst
+  topLevelTarget,
+  topLevelTargetID
 ) {
   if (topLevelType === topLevelTypes.topClick) {
-    return getInstIfValueChanged(targetInst);
-  }
-}
-
-function getTargetInstForInputOrChangeEvent(
-  topLevelType,
-  targetInst
-) {
-  if (
-    topLevelType === topLevelTypes.topInput ||
-    topLevelType === topLevelTypes.topChange
-  ) {
-    return getInstIfValueChanged(targetInst);
+    return topLevelTargetID;
   }
 }
 
@@ -305,43 +328,54 @@ var ChangeEventPlugin = {
 
   eventTypes: eventTypes,
 
-  _isInputEventSupported: isInputEventSupported,
-
+  /**
+   * @param {string} topLevelType Record from `EventConstants`.
+   * @param {DOMEventTarget} topLevelTarget The listening component root node.
+   * @param {string} topLevelTargetID ID of `topLevelTarget`.
+   * @param {object} nativeEvent Native browser event.
+   * @return {*} An accumulation of synthetic events.
+   * @see {EventPluginHub.extractEvents}
+   */
   extractEvents: function(
-    topLevelType,
-    targetInst,
-    nativeEvent,
-    nativeEventTarget
-  ) {
-    var targetNode = targetInst ?
-      ReactDOMComponentTree.getNodeFromInstance(targetInst) : window;
+      topLevelType,
+      topLevelTarget,
+      topLevelTargetID,
+      nativeEvent,
+      nativeEventTarget) {
 
-    var getTargetInstFunc, handleEventFunc;
-    if (shouldUseChangeEvent(targetNode)) {
+    var getTargetIDFunc, handleEventFunc;
+    if (shouldUseChangeEvent(topLevelTarget)) {
       if (doesChangeEventBubble) {
-        getTargetInstFunc = getTargetInstForChangeEvent;
+        getTargetIDFunc = getTargetIDForChangeEvent;
       } else {
         handleEventFunc = handleEventsForChangeEventIE8;
       }
-    } else if (isTextInputElement(targetNode)) {
+    } else if (isTextInputElement(topLevelTarget)) {
       if (isInputEventSupported) {
-        getTargetInstFunc = getTargetInstForInputOrChangeEvent;
+        getTargetIDFunc = getTargetIDForInputEvent;
       } else {
-        getTargetInstFunc = getTargetInstForInputEventPolyfill;
-        handleEventFunc = handleEventsForInputEventPolyfill;
+        getTargetIDFunc = getTargetIDForInputEventIE;
+        handleEventFunc = handleEventsForInputEventIE;
       }
-    } else if (shouldUseClickEvent(targetNode)) {
-      getTargetInstFunc = getTargetInstForClickEvent;
+    } else if (shouldUseClickEvent(topLevelTarget)) {
+      getTargetIDFunc = getTargetIDForClickEvent;
     }
 
-    if (getTargetInstFunc) {
-      var inst = getTargetInstFunc(topLevelType, targetInst);
-      if (inst) {
-        var event = createAndAccumulateChangeEvent(
-          inst,
+    if (getTargetIDFunc) {
+      var targetID = getTargetIDFunc(
+        topLevelType,
+        topLevelTarget,
+        topLevelTargetID
+      );
+      if (targetID) {
+        var event = SyntheticEvent.getPooled(
+          eventTypes.change,
+          targetID,
           nativeEvent,
           nativeEventTarget
         );
+        event.type = 'change';
+        EventPropagators.accumulateTwoPhaseDispatches(event);
         return event;
       }
     }
@@ -349,8 +383,8 @@ var ChangeEventPlugin = {
     if (handleEventFunc) {
       handleEventFunc(
         topLevelType,
-        targetNode,
-        targetInst
+        topLevelTarget,
+        topLevelTargetID
       );
     }
   },

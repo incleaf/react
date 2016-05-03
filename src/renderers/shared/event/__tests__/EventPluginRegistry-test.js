@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,6 +11,7 @@
 
 'use strict';
 
+var assign = require('Object.assign');
 
 describe('EventPluginRegistry', function() {
   var EventPluginRegistry;
@@ -21,7 +22,7 @@ describe('EventPluginRegistry', function() {
     EventPluginRegistry._resetEventPlugins();
 
     createPlugin = function(properties) {
-      return Object.assign({extractEvents: function() {}}, properties);
+      return assign({extractEvents: function() {}}, properties);
     };
   });
 

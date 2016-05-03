@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -7,9 +7,12 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule ReactInstanceHandles
+ * @typechecks static-only
  */
 
 'use strict';
+
+var ReactRootIndex = require('ReactRootIndex');
 
 var invariant = require('invariant');
 
@@ -218,11 +221,10 @@ var ReactInstanceHandles = {
 
   /**
    * Constructs a React root ID
-   * @param {number} index A unique integer
    * @return {string} A React root ID.
    */
-  createReactRootID: function(index) {
-    return getReactRootIDString(index);
+  createReactRootID: function() {
+    return getReactRootIDString(ReactRootIndex.createReactRootIndex());
   },
 
   /**

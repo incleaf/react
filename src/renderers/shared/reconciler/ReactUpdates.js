@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,12 +13,11 @@
 
 var CallbackQueue = require('CallbackQueue');
 var PooledClass = require('PooledClass');
-var ReactFeatureFlags = require('ReactFeatureFlags');
-var ReactInstrumentation = require('ReactInstrumentation');
 var ReactPerf = require('ReactPerf');
 var ReactReconciler = require('ReactReconciler');
 var Transaction = require('Transaction');
 
+var assign = require('Object.assign');
 var invariant = require('invariant');
 
 var dirtyComponents = [];
@@ -69,12 +68,11 @@ function ReactUpdatesFlushTransaction() {
   this.reinitializeTransaction();
   this.dirtyComponentsLength = null;
   this.callbackQueue = CallbackQueue.getPooled();
-  this.reconcileTransaction = ReactUpdates.ReactReconcileTransaction.getPooled(
-    /* useCreateElement */ true
-  );
+  this.reconcileTransaction =
+    ReactUpdates.ReactReconcileTransaction.getPooled(/* forceHTML */ false);
 }
 
-Object.assign(
+assign(
   ReactUpdatesFlushTransaction.prototype,
   Transaction.Mixin,
   {
@@ -150,28 +148,10 @@ function runBatchedUpdates(transaction) {
     var callbacks = component._pendingCallbacks;
     component._pendingCallbacks = null;
 
-    var markerName;
-    if (ReactFeatureFlags.logTopLevelRenders) {
-      var namedComponent = component;
-      // Duck type TopLevelWrapper. This is probably always true.
-      if (
-        component._currentElement.props ===
-        component._renderedComponent._currentElement
-      ) {
-        namedComponent = component._renderedComponent;
-      }
-      markerName = 'React update: ' + namedComponent.getName();
-      console.time(markerName);
-    }
-
     ReactReconciler.performUpdateIfNecessary(
       component,
       transaction.reconcileTransaction
     );
-
-    if (markerName) {
-      console.timeEnd(markerName);
-    }
 
     if (callbacks) {
       for (var j = 0; j < callbacks.length; j++) {
@@ -185,10 +165,6 @@ function runBatchedUpdates(transaction) {
 }
 
 var flushBatchedUpdates = function() {
-  if (__DEV__) {
-    ReactInstrumentation.debugTool.onBeginFlush();
-  }
-
   // ReactUpdatesFlushTransaction's wrappers will clear the dirtyComponents
   // array and perform any updates enqueued by mount-ready handlers (i.e.,
   // componentDidUpdate) but we need to check here too in order to catch
@@ -207,10 +183,6 @@ var flushBatchedUpdates = function() {
       queue.notifyAll();
       CallbackQueue.release(queue);
     }
-  }
-
-  if (__DEV__) {
-    ReactInstrumentation.debugTool.onEndFlush();
   }
 };
 flushBatchedUpdates = ReactPerf.measure(

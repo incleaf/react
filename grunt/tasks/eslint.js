@@ -2,12 +2,10 @@
 
 var grunt = require('grunt');
 
-var extension = process.platform === 'win32' ? '.cmd': '';
-
 module.exports = function() {
   var done = this.async();
   grunt.util.spawn({
-    cmd: 'node_modules/.bin/eslint' + extension,
+    cmd: 'node_modules/.bin/eslint',
     args: ['.'],
     opts: {stdio: 'inherit'}, // allows colors to passthrough
   }, function(err, result, code) {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -14,6 +14,8 @@
 var React;
 var ReactDOM;
 var ReactDOMServer;
+var ReactInstanceMap;
+var ReactMount;
 
 var getTestDocument;
 
@@ -28,17 +30,19 @@ var UNMOUNT_INVARIANT_MESSAGE =
 
 describe('rendering React components at document', function() {
   beforeEach(function() {
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
 
     React = require('React');
     ReactDOM = require('ReactDOM');
     ReactDOMServer = require('ReactDOMServer');
+    ReactInstanceMap = require('ReactInstanceMap');
+    ReactMount = require('ReactMount');
     getTestDocument = require('getTestDocument');
 
     testDocument = getTestDocument();
   });
 
-  it('should be able to adopt server markup', function() {
+  it('should be able to get root component id for document node', function() {
     expect(testDocument).not.toBeUndefined();
 
     var Root = React.createClass({
@@ -49,24 +53,22 @@ describe('rendering React components at document', function() {
               <title>Hello World</title>
             </head>
             <body>
-              {'Hello ' + this.props.hello}
+              Hello world
             </body>
           </html>
         );
       },
     });
 
-    var markup = ReactDOMServer.renderToString(<Root hello="world" />);
+    var markup = ReactDOMServer.renderToString(<Root />);
     testDocument = getTestDocument(markup);
-    var body = testDocument.body;
-
-    ReactDOM.render(<Root hello="world" />, testDocument);
+    var component = ReactDOM.render(<Root />, testDocument);
     expect(testDocument.body.innerHTML).toBe('Hello world');
 
-    ReactDOM.render(<Root hello="moon" />, testDocument);
-    expect(testDocument.body.innerHTML).toBe('Hello moon');
-
-    expect(body).toBe(testDocument.body);
+    // TODO: This is a bad test. I have no idea what this is testing.
+    // Node IDs is an implementation detail and not part of the public API.
+    var componentID = ReactMount.getReactRootID(testDocument);
+    expect(componentID).toBe(ReactInstanceMap.get(component)._rootNodeID);
   });
 
   it('should not be able to unmount component from document node', function() {
@@ -210,8 +212,8 @@ describe('rendering React components at document', function() {
       'quirks by rendering at the document root. You should look for ' +
       'environment dependent code in your components and ensure ' +
       'the props are the same client and server side:\n' +
-      ' (client) dy data-reactid="4">Hello world</body></\n' +
-      ' (server) dy data-reactid="4">Goodbye world</body>'
+      ' (client) data-reactid=".0.1">Hello world</body></\n' +
+      ' (server) data-reactid=".0.1">Goodbye world</body>'
     );
   });
 

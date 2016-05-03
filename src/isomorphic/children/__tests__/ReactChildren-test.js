@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -85,7 +85,7 @@ describe('ReactChildren', function() {
     expect(ReactChildren.count(mappedChildren)).toBe(1);
     expect(mappedChildren[0]).not.toBe(simpleKid);
     expect(mappedChildren[0].props.children).toBe(simpleKid);
-    expect(mappedChildren[0].key).toBe('.$simple');
+    expect(mappedChildren[0].key).toBe('/.$simple');
   });
 
   it('should invoke callback with the right context', function() {
@@ -117,15 +117,17 @@ describe('ReactChildren', function() {
     var three = null;
     var four = <div key="keyFour" />;
 
-    var mapped = [
-      <div key="giraffe" />,  // Key should be joined to obj key
-      null,  // Key should be added even if we don't supply it!
-      <div />,  // Key should be added even if not supplied!
-      <span />, // Map from null to something.
-      <div key="keyFour" />,
-    ];
+    var zeroMapped = <div key="giraffe" />;  // Key should be joined to obj key
+    var oneMapped = null;  // Key should be added even if we don't supply it!
+    var twoMapped = <div />;  // Key should be added even if not supplied!
+    var threeMapped = <span />; // Map from null to something.
+    var fourMapped = <div key="keyFour" />;
+
     var callback = jasmine.createSpy().andCallFake(function(kid, index) {
-      return mapped[index];
+      return index === 0 ? zeroMapped :
+        index === 1 ? oneMapped :
+        index === 2 ? twoMapped :
+        index === 3 ? threeMapped : fourMapped;
     });
 
     var instance = (
@@ -157,7 +159,7 @@ describe('ReactChildren', function() {
       mappedChildren[2].key,
       mappedChildren[3].key,
     ]).toEqual(
-      ['giraffe/.$keyZero', '.$keyTwo', '.3', '.$keyFour']
+      ['giraffe/.$keyZero', '/.$keyTwo', '/.3', 'keyFour/.$keyFour']
     );
 
     expect(callback).toHaveBeenCalledWith(zero, 0);
@@ -167,9 +169,9 @@ describe('ReactChildren', function() {
     expect(callback).toHaveBeenCalledWith(four, 4);
 
     expect(mappedChildren[0]).toEqual(<div key="giraffe/.$keyZero" />);
-    expect(mappedChildren[1]).toEqual(<div key=".$keyTwo" />);
-    expect(mappedChildren[2]).toEqual(<span key=".3" />);
-    expect(mappedChildren[3]).toEqual(<div key=".$keyFour" />);
+    expect(mappedChildren[1]).toEqual(<div key="/.$keyTwo" />);
+    expect(mappedChildren[2]).toEqual(<span key="/.3" />);
+    expect(mappedChildren[3]).toEqual(<div key="keyFour/.$keyFour" />);
   });
 
   it('should be called for each child in nested structure', function() {
@@ -238,16 +240,16 @@ describe('ReactChildren', function() {
       mappedChildren[2].key,
       mappedChildren[3].key,
     ]).toEqual([
-      'giraffe/.0:$firstHalfKey/.$keyZero',
-      '.0:$firstHalfKey/.$keyTwo',
-      'keyFour/.0:$secondHalfKey/.$keyFour',
-      '.0:$keyFive/.$keyFiveInner',
+      'giraffe/.0:$firstHalfKey/=1$keyZero',
+      '/.0:$firstHalfKey/=1$keyTwo',
+      'keyFour/.0:$secondHalfKey/=1$keyFour',
+      '/.0:$keyFive/=1$keyFiveInner',
     ]);
 
-    expect(mappedChildren[0]).toEqual(<div key="giraffe/.0:$firstHalfKey/.$keyZero" />);
-    expect(mappedChildren[1]).toEqual(<div key=".0:$firstHalfKey/.$keyTwo" />);
-    expect(mappedChildren[2]).toEqual(<div key="keyFour/.0:$secondHalfKey/.$keyFour" />);
-    expect(mappedChildren[3]).toEqual(<div key=".0:$keyFive/.$keyFiveInner" />);
+    expect(mappedChildren[0]).toEqual(<div key="giraffe/.0:$firstHalfKey/=1$keyZero" />);
+    expect(mappedChildren[1]).toEqual(<div key="/.0:$firstHalfKey/=1$keyTwo" />);
+    expect(mappedChildren[2]).toEqual(<div key="keyFour/.0:$secondHalfKey/=1$keyFour" />);
+    expect(mappedChildren[3]).toEqual(<div key="/.0:$keyFive/=1$keyFiveInner" />);
   });
 
   it('should retain key across two mappings', function() {
@@ -270,15 +272,15 @@ describe('ReactChildren', function() {
       </div>
     );
 
-    var expectedForcedKeys = ['giraffe/.$keyZero', '.$keyOne'];
+    var expectedForcedKeys = ['giraffe/.$keyZero', '/.$keyOne'];
     var mappedChildrenForcedKeys =
       ReactChildren.map(forcedKeys.props.children, mapFn);
     var mappedForcedKeys = mappedChildrenForcedKeys.map((c) => c.key);
     expect(mappedForcedKeys).toEqual(expectedForcedKeys);
 
     var expectedRemappedForcedKeys = [
-      'giraffe/.$giraffe/.$keyZero',
-      '.$.$keyOne',
+      'giraffe/.$giraffe/=1$keyZero',
+      '/.$/=1$keyOne',
     ];
     var remappedChildrenForcedKeys =
       ReactChildren.map(mappedChildrenForcedKeys, mapFn);
@@ -306,46 +308,6 @@ describe('ReactChildren', function() {
     expect(function() {
       ReactChildren.map(instance.props.children, mapFn);
     }).not.toThrow();
-  });
-
-  it('should use the same key for a cloned element', function() {
-    var instance = (
-      <div>
-        <div />
-      </div>
-    );
-
-    var mapped = ReactChildren.map(
-      instance.props.children,
-      element => element,
-    );
-
-    var mappedWithClone = ReactChildren.map(
-      instance.props.children,
-      element => React.cloneElement(element),
-    );
-
-    expect(mapped[0].key).toBe(mappedWithClone[0].key);
-  });
-
-  it('should use the same key for a cloned element with key', function() {
-    var instance = (
-      <div>
-        <div key="unique" />
-      </div>
-    );
-
-    var mapped = ReactChildren.map(
-      instance.props.children,
-      element => element,
-    );
-
-    var mappedWithClone = ReactChildren.map(
-      instance.props.children,
-      element => React.cloneElement(element, {key: 'unique'}),
-    );
-
-    expect(mapped[0].key).toBe(mappedWithClone[0].key);
   });
 
   it('should return 0 for null children', function() {

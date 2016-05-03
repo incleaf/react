@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,8 +11,8 @@
 
 'use strict';
 
-jest
-  .unmock('EventPluginHub')
+require('mock-modules')
+  .dontMock('EventPluginHub')
   .mock('isEventSupported');
 
 describe('EventPluginHub', function() {
@@ -20,7 +20,7 @@ describe('EventPluginHub', function() {
   var isEventSupported;
 
   beforeEach(function() {
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
     EventPluginHub = require('EventPluginHub');
     isEventSupported = require('isEventSupported');
     isEventSupported.mockReturnValueOnce(false);

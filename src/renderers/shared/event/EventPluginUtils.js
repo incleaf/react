@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -22,31 +22,18 @@ var warning = require('warning');
  */
 
 /**
- * - `ComponentTree`: [required] Module that can convert between React instances
- *   and actual node references.
+ * - `Mount`: [required] Module that can convert between React dom IDs and
+ *   actual node references.
  */
-var ComponentTree;
-var TreeTraversal;
 var injection = {
-  injectComponentTree: function(Injected) {
-    ComponentTree = Injected;
+  Mount: null,
+  injectMount: function(InjectedMount) {
+    injection.Mount = InjectedMount;
     if (__DEV__) {
       warning(
-        Injected &&
-        Injected.getNodeFromInstance &&
-        Injected.getInstanceFromNode,
-        'EventPluginUtils.injection.injectComponentTree(...): Injected ' +
-        'module is missing getNodeFromInstance or getInstanceFromNode.'
-      );
-    }
-  },
-  injectTreeTraversal: function(Injected) {
-    TreeTraversal = Injected;
-    if (__DEV__) {
-      warning(
-        Injected && Injected.isAncestor && Injected.getLowestCommonAncestor,
-        'EventPluginUtils.injection.injectTreeTraversal(...): Injected ' +
-        'module is missing isAncestor or getLowestCommonAncestor.'
+        InjectedMount && InjectedMount.getNode && InjectedMount.getID,
+        'EventPluginUtils.injection.injectMount(...): Injected Mount ' +
+        'module is missing getNode or getID.'
       );
     }
   },
@@ -74,20 +61,17 @@ var validateEventDispatches;
 if (__DEV__) {
   validateEventDispatches = function(event) {
     var dispatchListeners = event._dispatchListeners;
-    var dispatchInstances = event._dispatchInstances;
+    var dispatchIDs = event._dispatchIDs;
 
     var listenersIsArr = Array.isArray(dispatchListeners);
+    var idsIsArr = Array.isArray(dispatchIDs);
+    var IDsLen = idsIsArr ? dispatchIDs.length : dispatchIDs ? 1 : 0;
     var listenersLen = listenersIsArr ?
       dispatchListeners.length :
       dispatchListeners ? 1 : 0;
 
-    var instancesIsArr = Array.isArray(dispatchInstances);
-    var instancesLen = instancesIsArr ?
-      dispatchInstances.length :
-      dispatchInstances ? 1 : 0;
-
     warning(
-      instancesIsArr === listenersIsArr && instancesLen === listenersLen,
+      idsIsArr === listenersIsArr && IDsLen === listenersLen,
       'EventPluginUtils: Invalid `event`.'
     );
   };
@@ -98,19 +82,20 @@ if (__DEV__) {
  * @param {SyntheticEvent} event SyntheticEvent to handle
  * @param {boolean} simulated If the event is simulated (changes exn behavior)
  * @param {function} listener Application-level callback
- * @param {*} inst Internal component instance
+ * @param {string} domID DOM id to pass to the callback.
  */
-function executeDispatch(event, simulated, listener, inst) {
+function executeDispatch(event, simulated, listener, domID) {
   var type = event.type || 'unknown-event';
-  event.currentTarget = EventPluginUtils.getNodeFromInstance(inst);
+  event.currentTarget = injection.Mount.getNode(domID);
   if (simulated) {
     ReactErrorUtils.invokeGuardedCallbackWithCatch(
       type,
       listener,
-      event
+      event,
+      domID
     );
   } else {
-    ReactErrorUtils.invokeGuardedCallback(type, listener, event);
+    ReactErrorUtils.invokeGuardedCallback(type, listener, event, domID);
   }
   event.currentTarget = null;
 }
@@ -120,7 +105,7 @@ function executeDispatch(event, simulated, listener, inst) {
  */
 function executeDispatchesInOrder(event, simulated) {
   var dispatchListeners = event._dispatchListeners;
-  var dispatchInstances = event._dispatchInstances;
+  var dispatchIDs = event._dispatchIDs;
   if (__DEV__) {
     validateEventDispatches(event);
   }
@@ -129,19 +114,14 @@ function executeDispatchesInOrder(event, simulated) {
       if (event.isPropagationStopped()) {
         break;
       }
-      // Listeners and Instances are two parallel arrays that are always in sync.
-      executeDispatch(
-        event,
-        simulated,
-        dispatchListeners[i],
-        dispatchInstances[i]
-      );
+      // Listeners and IDs are two parallel arrays that are always in sync.
+      executeDispatch(event, simulated, dispatchListeners[i], dispatchIDs[i]);
     }
   } else if (dispatchListeners) {
-    executeDispatch(event, simulated, dispatchListeners, dispatchInstances);
+    executeDispatch(event, simulated, dispatchListeners, dispatchIDs);
   }
   event._dispatchListeners = null;
-  event._dispatchInstances = null;
+  event._dispatchIDs = null;
 }
 
 /**
@@ -153,7 +133,7 @@ function executeDispatchesInOrder(event, simulated) {
  */
 function executeDispatchesInOrderStopAtTrueImpl(event) {
   var dispatchListeners = event._dispatchListeners;
-  var dispatchInstances = event._dispatchInstances;
+  var dispatchIDs = event._dispatchIDs;
   if (__DEV__) {
     validateEventDispatches(event);
   }
@@ -162,14 +142,14 @@ function executeDispatchesInOrderStopAtTrueImpl(event) {
       if (event.isPropagationStopped()) {
         break;
       }
-      // Listeners and Instances are two parallel arrays that are always in sync.
-      if (dispatchListeners[i](event, dispatchInstances[i])) {
-        return dispatchInstances[i];
+      // Listeners and IDs are two parallel arrays that are always in sync.
+      if (dispatchListeners[i](event, dispatchIDs[i])) {
+        return dispatchIDs[i];
       }
     }
   } else if (dispatchListeners) {
-    if (dispatchListeners(event, dispatchInstances)) {
-      return dispatchInstances;
+    if (dispatchListeners(event, dispatchIDs)) {
+      return dispatchIDs;
     }
   }
   return null;
@@ -180,7 +160,7 @@ function executeDispatchesInOrderStopAtTrueImpl(event) {
  */
 function executeDispatchesInOrderStopAtTrue(event) {
   var ret = executeDispatchesInOrderStopAtTrueImpl(event);
-  event._dispatchInstances = null;
+  event._dispatchIDs = null;
   event._dispatchListeners = null;
   return ret;
 }
@@ -199,16 +179,16 @@ function executeDirectDispatch(event) {
     validateEventDispatches(event);
   }
   var dispatchListener = event._dispatchListeners;
-  var dispatchInstance = event._dispatchInstances;
+  var dispatchID = event._dispatchIDs;
   invariant(
     !Array.isArray(dispatchListener),
     'executeDirectDispatch(...): Invalid `event`.'
   );
-  event.currentTarget = dispatchListener ? EventPluginUtils.getNodeFromInstance(dispatchInstance) : null;
-  var res = dispatchListener ? dispatchListener(event) : null;
-  event.currentTarget = null;
+  var res = dispatchListener ?
+    dispatchListener(event, dispatchID) :
+    null;
   event._dispatchListeners = null;
-  event._dispatchInstances = null;
+  event._dispatchIDs = null;
   return res;
 }
 
@@ -233,26 +213,11 @@ var EventPluginUtils = {
   executeDispatchesInOrderStopAtTrue: executeDispatchesInOrderStopAtTrue,
   hasDispatches: hasDispatches,
 
-  getInstanceFromNode: function(node) {
-    return ComponentTree.getInstanceFromNode(node);
+  getNode: function(id) {
+    return injection.Mount.getNode(id);
   },
-  getNodeFromInstance: function(node) {
-    return ComponentTree.getNodeFromInstance(node);
-  },
-  isAncestor: function(a, b) {
-    return TreeTraversal.isAncestor(a, b);
-  },
-  getLowestCommonAncestor: function(a, b) {
-    return TreeTraversal.getLowestCommonAncestor(a, b);
-  },
-  getParentInstance: function(inst) {
-    return TreeTraversal.getParentInstance(inst);
-  },
-  traverseTwoPhase: function(target, fn, arg) {
-    return TreeTraversal.traverseTwoPhase(target, fn, arg);
-  },
-  traverseEnterLeave: function(from, to, fn, argFrom, argTo) {
-    return TreeTraversal.traverseEnterLeave(from, to, fn, argFrom, argTo);
+  getID: function(node) {
+    return injection.Mount.getID(node);
   },
 
   injection: injection,

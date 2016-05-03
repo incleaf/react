@@ -1,5 +1,6 @@
 'use strict';
 
+var assign = require('object-assign');
 var fs = require('fs');
 var grunt = require('grunt');
 var path = require('path');
@@ -16,7 +17,7 @@ var addons = {
     docs: 'two-way-binding-helpers',
   },
   Perf: {
-    module: 'ReactPerfAnalysis',
+    module: 'ReactDefaultPerf',
     name: 'perf',
     docs: 'perf',
   },
@@ -34,6 +35,11 @@ var addons = {
     module: 'ReactTransitionGroup',
     name: 'transition-group',
     docs: 'animation',
+  },
+  cloneWithProps: {
+    module: 'cloneWithProps',
+    name: 'clone-with-props',
+    docs: 'clone-with-props',
   },
   createFragment: {
     module: 'ReactFragment',
@@ -75,7 +81,7 @@ function buildReleases() {
     var destLicense = path.join(destDir, 'LICENSE');
     var destPatents = path.join(destDir, 'PATENTS');
 
-    var pkgData = Object.assign({}, pkgTemplate);
+    var pkgData = assign({}, pkgTemplate);
     pkgData.name = pkgName;
 
     grunt.file.mkdir(destDir);

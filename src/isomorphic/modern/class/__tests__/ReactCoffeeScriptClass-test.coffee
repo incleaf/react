@@ -1,5 +1,5 @@
 ###
-Copyright 2015-present, Facebook, Inc.
+Copyright 2015, Facebook, Inc.
 All rights reserved.
 
 This source code is licensed under the BSD-style license found in the
@@ -52,7 +52,7 @@ describe 'ReactCoffeeScriptClass', ->
       ReactDOM.render React.createElement(Foo), container
     ).toThrow()
     expect(console.error.calls.length).toBe(1)
-    expect(console.error.argsForCall[0][0]).toContain('No `render` method found on the returned component instance')
+    expect(console.error.calls[0].args[0]).toContain('No `render` method found on the returned component instance')
 
   it 'renders a simple stateless component with prop', ->
     class Foo extends React.Component
@@ -293,16 +293,16 @@ describe 'ReactCoffeeScriptClass', ->
     expect(getInitialStateWasCalled).toBe false
     expect(getDefaultPropsWasCalled).toBe false
     expect(console.error.calls.length).toBe 4
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'getInitialState was defined on Foo, a plain JavaScript class.'
     )
-    expect(console.error.argsForCall[1][0]).toContain(
+    expect(console.error.calls[1].args[0]).toContain(
       'getDefaultProps was defined on Foo, a plain JavaScript class.'
     )
-    expect(console.error.argsForCall[2][0]).toContain(
+    expect(console.error.calls[2].args[0]).toContain(
       'propTypes was defined as an instance property on Foo.'
     )
-    expect(console.error.argsForCall[3][0]).toContain(
+    expect(console.error.calls[3].args[0]).toContain(
       'contextTypes was defined as an instance property on Foo.'
     )
 
@@ -318,7 +318,7 @@ describe 'ReactCoffeeScriptClass', ->
 
     test React.createElement(NamedComponent), 'SPAN', 'foo'
     expect(console.error.calls.length).toBe 1
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.calls[0].args[0]).toBe(
       'Warning: NamedComponent has a method called componentShouldUpdate().
        Did you mean shouldComponentUpdate()? The name is phrased as a
        question because the function is expected to return a value.'
@@ -336,7 +336,7 @@ describe 'ReactCoffeeScriptClass', ->
 
     test React.createElement(NamedComponent), 'SPAN', 'foo'
     expect(console.error.calls.length).toBe 1
-    expect(console.error.argsForCall[0][0]).toBe(
+    expect(console.error.calls[0].args[0]).toBe(
       'Warning: NamedComponent has a method called componentWillRecieveProps().
        Did you mean componentWillReceiveProps()?'
     )
@@ -345,16 +345,26 @@ describe 'ReactCoffeeScriptClass', ->
     spyOn console, 'error'
     instance =
       test Inner(name: 'foo'), 'DIV', 'foo'
+    expect(-> instance.getDOMNode()).toThrow()
     expect(-> instance.replaceState {}).toThrow()
     expect(-> instance.isMounted()).toThrow()
     expect(-> instance.setProps name: 'bar').toThrow()
     expect(-> instance.replaceProps name: 'bar').toThrow()
-    expect(console.error.calls.length).toBe 2
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls.length).toBe 5
+    expect(console.error.calls[0].args[0]).toContain(
+      'getDOMNode(...) is deprecated in plain JavaScript React classes'
+    )
+    expect(console.error.calls[1].args[0]).toContain(
       'replaceState(...) is deprecated in plain JavaScript React classes'
     )
-    expect(console.error.argsForCall[1][0]).toContain(
+    expect(console.error.calls[2].args[0]).toContain(
       'isMounted(...) is deprecated in plain JavaScript React classes'
+    )
+    expect(console.error.calls[3].args[0]).toContain(
+      'setProps(...) is deprecated in plain JavaScript React classes'
+    )
+    expect(console.error.calls[4].args[0]).toContain(
+      'replaceProps(...) is deprecated in plain JavaScript React classes'
     )
 
   it 'supports this.context passed via getChildContext', ->

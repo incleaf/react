@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -18,6 +18,7 @@ var ReactErrorUtils = require('ReactErrorUtils');
 var accumulateInto = require('accumulateInto');
 var forEachAccumulated = require('forEachAccumulated');
 var invariant = require('invariant');
+var warning = require('warning');
 
 /**
  * Internal store for event listeners
@@ -54,6 +55,23 @@ var executeDispatchesAndReleaseTopLevel = function(e) {
 };
 
 /**
+ * - `InstanceHandle`: [required] Module that performs logical traversals of DOM
+ *   hierarchy given ids of the logical DOM elements involved.
+ */
+var InstanceHandle = null;
+
+function validateInstanceHandle() {
+  var valid =
+    InstanceHandle &&
+    InstanceHandle.traverseTwoPhase &&
+    InstanceHandle.traverseEnterLeave;
+  warning(
+    valid,
+    'InstanceHandle not injected before use!'
+  );
+}
+
+/**
  * This is a unified interface for event plugins to be installed and configured.
  *
  * Event plugins can implement the following properties:
@@ -83,6 +101,30 @@ var EventPluginHub = {
   injection: {
 
     /**
+     * @param {object} InjectedMount
+     * @public
+     */
+    injectMount: EventPluginUtils.injection.injectMount,
+
+    /**
+     * @param {object} InjectedInstanceHandle
+     * @public
+     */
+    injectInstanceHandle: function(InjectedInstanceHandle) {
+      InstanceHandle = InjectedInstanceHandle;
+      if (__DEV__) {
+        validateInstanceHandle();
+      }
+    },
+
+    getInstanceHandle: function() {
+      if (__DEV__) {
+        validateInstanceHandle();
+      }
+      return InstanceHandle;
+    },
+
+    /**
      * @param {array} InjectedEventPluginOrder
      * @public
      */
@@ -95,14 +137,18 @@ var EventPluginHub = {
 
   },
 
+  eventNameDispatchConfigs: EventPluginRegistry.eventNameDispatchConfigs,
+
+  registrationNameModules: EventPluginRegistry.registrationNameModules,
+
   /**
    * Stores `listener` at `listenerBank[registrationName][id]`. Is idempotent.
    *
-   * @param {object} inst The instance, which is the source of events.
+   * @param {string} id ID of the DOM element.
    * @param {string} registrationName Name of listener (e.g. `onClick`).
-   * @param {function} listener The callback to store.
+   * @param {?function} listener The callback to store.
    */
-  putListener: function(inst, registrationName, listener) {
+  putListener: function(id, registrationName, listener) {
     invariant(
       typeof listener === 'function',
       'Expected %s listener to be a function, instead got type %s',
@@ -111,63 +157,63 @@ var EventPluginHub = {
 
     var bankForRegistrationName =
       listenerBank[registrationName] || (listenerBank[registrationName] = {});
-    bankForRegistrationName[inst._rootNodeID] = listener;
+    bankForRegistrationName[id] = listener;
 
     var PluginModule =
       EventPluginRegistry.registrationNameModules[registrationName];
     if (PluginModule && PluginModule.didPutListener) {
-      PluginModule.didPutListener(inst, registrationName, listener);
+      PluginModule.didPutListener(id, registrationName, listener);
     }
   },
 
   /**
-   * @param {object} inst The instance, which is the source of events.
+   * @param {string} id ID of the DOM element.
    * @param {string} registrationName Name of listener (e.g. `onClick`).
    * @return {?function} The stored callback.
    */
-  getListener: function(inst, registrationName) {
+  getListener: function(id, registrationName) {
     var bankForRegistrationName = listenerBank[registrationName];
-    return bankForRegistrationName && bankForRegistrationName[inst._rootNodeID];
+    return bankForRegistrationName && bankForRegistrationName[id];
   },
 
   /**
    * Deletes a listener from the registration bank.
    *
-   * @param {object} inst The instance, which is the source of events.
+   * @param {string} id ID of the DOM element.
    * @param {string} registrationName Name of listener (e.g. `onClick`).
    */
-  deleteListener: function(inst, registrationName) {
+  deleteListener: function(id, registrationName) {
     var PluginModule =
       EventPluginRegistry.registrationNameModules[registrationName];
     if (PluginModule && PluginModule.willDeleteListener) {
-      PluginModule.willDeleteListener(inst, registrationName);
+      PluginModule.willDeleteListener(id, registrationName);
     }
 
     var bankForRegistrationName = listenerBank[registrationName];
     // TODO: This should never be null -- when is it?
     if (bankForRegistrationName) {
-      delete bankForRegistrationName[inst._rootNodeID];
+      delete bankForRegistrationName[id];
     }
   },
 
   /**
    * Deletes all listeners for the DOM element with the supplied ID.
    *
-   * @param {object} inst The instance, which is the source of events.
+   * @param {string} id ID of the DOM element.
    */
-  deleteAllListeners: function(inst) {
+  deleteAllListeners: function(id) {
     for (var registrationName in listenerBank) {
-      if (!listenerBank[registrationName][inst._rootNodeID]) {
+      if (!listenerBank[registrationName][id]) {
         continue;
       }
 
       var PluginModule =
         EventPluginRegistry.registrationNameModules[registrationName];
       if (PluginModule && PluginModule.willDeleteListener) {
-        PluginModule.willDeleteListener(inst, registrationName);
+        PluginModule.willDeleteListener(id, registrationName);
       }
 
-      delete listenerBank[registrationName][inst._rootNodeID];
+      delete listenerBank[registrationName][id];
     }
   },
 
@@ -175,12 +221,17 @@ var EventPluginHub = {
    * Allows registered plugins an opportunity to extract events from top-level
    * native browser events.
    *
+   * @param {string} topLevelType Record from `EventConstants`.
+   * @param {DOMEventTarget} topLevelTarget The listening component root node.
+   * @param {string} topLevelTargetID ID of `topLevelTarget`.
+   * @param {object} nativeEvent Native browser event.
    * @return {*} An accumulation of synthetic events.
    * @internal
    */
   extractEvents: function(
       topLevelType,
-      targetInst,
+      topLevelTarget,
+      topLevelTargetID,
       nativeEvent,
       nativeEventTarget) {
     var events;
@@ -191,7 +242,8 @@ var EventPluginHub = {
       if (possiblePlugin) {
         var extractedEvents = possiblePlugin.extractEvents(
           topLevelType,
-          targetInst,
+          topLevelTarget,
+          topLevelTargetID,
           nativeEvent,
           nativeEventTarget
         );

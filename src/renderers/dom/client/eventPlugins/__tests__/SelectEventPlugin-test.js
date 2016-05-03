@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -14,7 +14,7 @@
 var EventConstants;
 var React;
 var ReactDOM;
-var ReactDOMComponentTree;
+var ReactMount;
 var ReactTestUtils;
 var SelectEventPlugin;
 
@@ -24,7 +24,8 @@ describe('SelectEventPlugin', function() {
   function extract(node, topLevelEvent) {
     return SelectEventPlugin.extractEvents(
       topLevelEvent,
-      ReactDOMComponentTree.getInstanceFromNode(node),
+      node,
+      ReactMount.getID(node),
       {target: node},
       node
     );
@@ -34,7 +35,7 @@ describe('SelectEventPlugin', function() {
     EventConstants = require('EventConstants');
     React = require('React');
     ReactDOM = require('ReactDOM');
-    ReactDOMComponentTree = require('ReactDOMComponentTree');
+    ReactMount = require('ReactMount');
     ReactTestUtils = require('ReactTestUtils');
     SelectEventPlugin = require('SelectEventPlugin');
 
@@ -60,13 +61,15 @@ describe('SelectEventPlugin', function() {
   });
 
   it('should extract if an `onSelect` listener is present', function() {
+    var mocks = require('mocks');
+
     var WithSelect = React.createClass({
       render: function() {
         return <input type="text" onSelect={this.props.onSelect} />;
       },
     });
 
-    var cb = jest.fn();
+    var cb = mocks.getMockFunction();
 
     var rendered = ReactTestUtils.renderIntoDocument(
       <WithSelect onSelect={cb} />

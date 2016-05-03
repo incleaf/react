@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -15,6 +15,7 @@
 var ReactInstanceMap = require('ReactInstanceMap');
 var ReactTestUtils = require('ReactTestUtils');
 
+var assign = require('Object.assign');
 var invariant = require('invariant');
 
 function reactComponentExpect(instance) {
@@ -46,7 +47,7 @@ function reactComponentExpectInternal(internalInstance) {
   this._instance = internalInstance;
 }
 
-Object.assign(reactComponentExpectInternal.prototype, {
+assign(reactComponentExpectInternal.prototype, {
   // Getters -------------------------------------------------------------------
 
   /**

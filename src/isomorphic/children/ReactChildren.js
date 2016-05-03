@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -21,9 +21,9 @@ var twoArgumentPooler = PooledClass.twoArgumentPooler;
 var fourArgumentPooler = PooledClass.fourArgumentPooler;
 
 
-var userProvidedKeyEscapeRegex = /\/+/g;
+var userProvidedKeyEscapeRegex = /\/(?!\/)/g;
 function escapeUserProvidedKey(text) {
-  return ('' + text).replace(userProvidedKeyEscapeRegex, '$&/');
+  return ('' + text).replace(userProvidedKeyEscapeRegex, '//');
 }
 
 
@@ -117,8 +117,8 @@ function mapSingleChildIntoContext(bookKeeping, child, childKey) {
         // traverseAllChildren used to do for objects as children
         keyPrefix +
         (
-          (mappedChild.key && (!child || (child.key !== mappedChild.key))) ?
-          escapeUserProvidedKey(mappedChild.key) + '/' :
+          mappedChild !== child ?
+          escapeUserProvidedKey(mappedChild.key || '') + '/' :
           ''
         ) +
         childKey
@@ -146,7 +146,7 @@ function mapIntoWithKeyPrefixInternal(children, array, prefix, func, context) {
 /**
  * Maps children that are typically specified as `props.children`.
  *
- * The provided mapFunction(child, index) will be called for each
+ * The provided mapFunction(child, key, index) will be called for each
  * leaf child.
  *
  * @param {?*} children Children tree container.

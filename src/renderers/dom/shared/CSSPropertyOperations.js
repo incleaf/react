@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -7,13 +7,13 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule CSSPropertyOperations
+ * @typechecks static-only
  */
 
 'use strict';
 
 var CSSProperty = require('CSSProperty');
 var ExecutionEnvironment = require('ExecutionEnvironment');
-var ReactInstrumentation = require('ReactInstrumentation');
 var ReactPerf = require('ReactPerf');
 
 var camelizeStyleName = require('camelizeStyleName');
@@ -51,9 +51,8 @@ if (__DEV__) {
 
   var warnedStyleNames = {};
   var warnedStyleValues = {};
-  var warnedForNaNValue = false;
 
-  var warnHyphenatedStyleName = function(name, owner) {
+  var warnHyphenatedStyleName = function(name) {
     if (warnedStyleNames.hasOwnProperty(name) && warnedStyleNames[name]) {
       return;
     }
@@ -61,14 +60,13 @@ if (__DEV__) {
     warnedStyleNames[name] = true;
     warning(
       false,
-      'Unsupported style property %s. Did you mean %s?%s',
+      'Unsupported style property %s. Did you mean %s?',
       name,
-      camelizeStyleName(name),
-      checkRenderMessage(owner)
+      camelizeStyleName(name)
     );
   };
 
-  var warnBadVendoredStyleName = function(name, owner) {
+  var warnBadVendoredStyleName = function(name) {
     if (warnedStyleNames.hasOwnProperty(name) && warnedStyleNames[name]) {
       return;
     }
@@ -76,14 +74,13 @@ if (__DEV__) {
     warnedStyleNames[name] = true;
     warning(
       false,
-      'Unsupported vendor-prefixed style property %s. Did you mean %s?%s',
+      'Unsupported vendor-prefixed style property %s. Did you mean %s?',
       name,
-      name.charAt(0).toUpperCase() + name.slice(1),
-      checkRenderMessage(owner)
+      name.charAt(0).toUpperCase() + name.slice(1)
     );
   };
 
-  var warnStyleValueWithSemicolon = function(name, value, owner) {
+  var warnStyleValueWithSemicolon = function(name, value) {
     if (warnedStyleValues.hasOwnProperty(value) && warnedStyleValues[value]) {
       return;
     }
@@ -91,58 +88,24 @@ if (__DEV__) {
     warnedStyleValues[value] = true;
     warning(
       false,
-      'Style property values shouldn\'t contain a semicolon.%s ' +
+      'Style property values shouldn\'t contain a semicolon. ' +
       'Try "%s: %s" instead.',
-      checkRenderMessage(owner),
       name,
       value.replace(badStyleValueWithSemicolonPattern, '')
     );
   };
 
-  var warnStyleValueIsNaN = function(name, value, owner) {
-    if (warnedForNaNValue) {
-      return;
-    }
-
-    warnedForNaNValue = true;
-    warning(
-      false,
-      '`NaN` is an invalid value for the `%s` css style property.%s',
-      name,
-      checkRenderMessage(owner)
-    );
-  };
-
-  var checkRenderMessage = function(owner) {
-    if (owner) {
-      var name = owner.getName();
-      if (name) {
-        return ' Check the render method of `' + name + '`.';
-      }
-    }
-    return '';
-  };
-
   /**
    * @param {string} name
    * @param {*} value
-   * @param {ReactDOMComponent} component
    */
-  var warnValidStyle = function(name, value, component) {
-    var owner;
-    if (component) {
-      owner = component._currentElement._owner;
-    }
+  var warnValidStyle = function(name, value) {
     if (name.indexOf('-') > -1) {
-      warnHyphenatedStyleName(name, owner);
+      warnHyphenatedStyleName(name);
     } else if (badVendoredStyleNamePattern.test(name)) {
-      warnBadVendoredStyleName(name, owner);
+      warnBadVendoredStyleName(name);
     } else if (badStyleValueWithSemicolonPattern.test(value)) {
-      warnStyleValueWithSemicolon(name, value, owner);
-    }
-
-    if (typeof value === 'number' && isNaN(value)) {
-      warnStyleValueIsNaN(name, value, owner);
+      warnStyleValueWithSemicolon(name, value);
     }
   };
 }
@@ -162,10 +125,9 @@ var CSSPropertyOperations = {
    * The result should be HTML-escaped before insertion into the DOM.
    *
    * @param {object} styles
-   * @param {ReactDOMComponent} component
    * @return {?string}
    */
-  createMarkupForStyles: function(styles, component) {
+  createMarkupForStyles: function(styles) {
     var serialized = '';
     for (var styleName in styles) {
       if (!styles.hasOwnProperty(styleName)) {
@@ -173,12 +135,11 @@ var CSSPropertyOperations = {
       }
       var styleValue = styles[styleName];
       if (__DEV__) {
-        warnValidStyle(styleName, styleValue, component);
+        warnValidStyle(styleName, styleValue);
       }
       if (styleValue != null) {
         serialized += processStyleName(styleName) + ':';
-        serialized +=
-          dangerousStyleValue(styleName, styleValue, component) + ';';
+        serialized += dangerousStyleValue(styleName, styleValue) + ';';
       }
     }
     return serialized || null;
@@ -190,31 +151,18 @@ var CSSPropertyOperations = {
    *
    * @param {DOMElement} node
    * @param {object} styles
-   * @param {ReactDOMComponent} component
    */
-  setValueForStyles: function(node, styles, component) {
-    if (__DEV__) {
-      ReactInstrumentation.debugTool.onNativeOperation(
-        component._debugID,
-        'update styles',
-        styles
-      );
-    }
-
+  setValueForStyles: function(node, styles) {
     var style = node.style;
     for (var styleName in styles) {
       if (!styles.hasOwnProperty(styleName)) {
         continue;
       }
       if (__DEV__) {
-        warnValidStyle(styleName, styles[styleName], component);
+        warnValidStyle(styleName, styles[styleName]);
       }
-      var styleValue = dangerousStyleValue(
-        styleName,
-        styles[styleName],
-        component
-      );
-      if (styleName === 'float' || styleName === 'cssFloat') {
+      var styleValue = dangerousStyleValue(styleName, styles[styleName]);
+      if (styleName === 'float') {
         styleName = styleFloatAccessor;
       }
       if (styleValue) {

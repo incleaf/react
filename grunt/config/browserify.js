@@ -2,7 +2,7 @@
 
 'use strict';
 
-var envify = require('loose-envify/custom');
+var envify = require('envify/custom');
 var grunt = require('grunt');
 var UglifyJS = require('uglify-js');
 var uglifyify = require('uglifyify');
@@ -50,7 +50,7 @@ function simpleBannerify(src) {
 // Our basic config which we'll add to to make our other builds
 var basic = {
   entries: [
-    './build/modules/ReactUMDEntry.js',
+    './build/modules/React.js',
   ],
   outfile: './build/react.js',
   debug: false,
@@ -63,7 +63,7 @@ var basic = {
 
 var min = {
   entries: [
-    './build/modules/ReactUMDEntry.js',
+    './build/modules/React.js',
   ],
   outfile: './build/react.min.js',
   debug: false,
@@ -81,7 +81,7 @@ var min = {
 
 var addons = {
   entries: [
-    './build/modules/ReactWithAddonsUMDEntry.js',
+    './build/modules/ReactWithAddons.js',
   ],
   outfile: './build/react-with-addons.js',
   debug: false,
@@ -94,7 +94,7 @@ var addons = {
 
 var addonsMin = {
   entries: [
-    './build/modules/ReactWithAddonsUMDEntry.js',
+    './build/modules/ReactWithAddons.js',
   ],
   outfile: './build/react-with-addons.min.js',
   debug: false,

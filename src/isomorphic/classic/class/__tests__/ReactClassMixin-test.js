@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -10,6 +10,8 @@
  */
 
 'use strict';
+
+var mocks = require('mocks');
 
 var React;
 var ReactTestUtils;
@@ -25,8 +27,8 @@ describe('ReactClass-mixin', function() {
   beforeEach(function() {
     React = require('React');
     ReactTestUtils = require('ReactTestUtils');
-    mixinPropValidator = jest.fn();
-    componentPropValidator = jest.fn();
+    mixinPropValidator = mocks.getMockFunction();
+    componentPropValidator = mocks.getMockFunction();
 
     var MixinA = {
       propTypes: {
@@ -107,7 +109,7 @@ describe('ReactClass-mixin', function() {
   });
 
   it('should support merging propTypes and statics', function() {
-    var listener = jest.fn();
+    var listener = mocks.getMockFunction();
     var instance = <TestComponent listener={listener} />;
     instance = ReactTestUtils.renderIntoDocument(instance);
 
@@ -122,7 +124,7 @@ describe('ReactClass-mixin', function() {
   });
 
   it('should support chaining delegate functions', function() {
-    var listener = jest.fn();
+    var listener = mocks.getMockFunction();
     var instance = <TestComponent listener={listener} />;
     instance = ReactTestUtils.renderIntoDocument(instance);
 
@@ -135,7 +137,7 @@ describe('ReactClass-mixin', function() {
   });
 
   it('should chain functions regardless of spec property order', function() {
-    var listener = jest.fn();
+    var listener = mocks.getMockFunction();
     var instance = <TestComponentWithReverseSpec listener={listener} />;
     instance = ReactTestUtils.renderIntoDocument(instance);
 
@@ -341,8 +343,8 @@ describe('ReactClass-mixin', function() {
         },
       });
     }).toThrow(
-      'ReactClass: You\'re attempting to use a component class or function ' +
-      'as a mixin. Instead, just use a regular object.'
+      'ReactClass: You\'re attempting to ' +
+      'use a component class as a mixin. Instead, just use a regular object.'
     );
   });
 

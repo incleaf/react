@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,6 +11,7 @@
 
 'use strict';
 
+var assign = require('Object.assign');
 var warning = require('warning');
 
 /**
@@ -30,7 +31,6 @@ function deprecated(fnName, newModule, newPackage, ctx, fn) {
     var newFn = function() {
       warning(
         warned,
-        /* eslint-disable no-useless-concat */
         // Require examples in this string must be split to prevent React's
         // build tools from mistaking them for real requires.
         // Otherwise the build tools will attempt to build a '%s' module.
@@ -41,13 +41,12 @@ function deprecated(fnName, newModule, newPackage, ctx, fn) {
         fnName,
         newPackage
       );
-      /* eslint-enable no-useless-concat */
       warned = true;
       return fn.apply(ctx, arguments);
     };
     // We need to make sure all properties of the original fn are copied over.
     // In particular, this is needed to support PropTypes
-    return Object.assign(newFn, fn);
+    return assign(newFn, fn);
   }
 
   return fn;

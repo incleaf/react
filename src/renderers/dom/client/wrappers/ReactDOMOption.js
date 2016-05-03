@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,16 +12,18 @@
 'use strict';
 
 var ReactChildren = require('ReactChildren');
-var ReactDOMComponentTree = require('ReactDOMComponentTree');
 var ReactDOMSelect = require('ReactDOMSelect');
 
+var assign = require('Object.assign');
 var warning = require('warning');
+
+var valueContextKey = ReactDOMSelect.valueContextKey;
 
 /**
  * Implements an <option> native component that warns when `selected` is set.
  */
 var ReactDOMOption = {
-  mountWrapper: function(inst, props, nativeParent) {
+  mountWrapper: function(inst, props, context) {
     // TODO (yungsters): Remove support for `selected` in <option>.
     if (__DEV__) {
       warning(
@@ -31,21 +33,10 @@ var ReactDOMOption = {
       );
     }
 
-    // Look up whether this option is 'selected'
-    var selectValue = null;
-    if (nativeParent != null) {
-      var selectParent = nativeParent;
+    // Look up whether this option is 'selected' via context
+    var selectValue = context[valueContextKey];
 
-      if (selectParent._tag === 'optgroup') {
-        selectParent = selectParent._nativeParent;
-      }
-
-      if (selectParent != null && selectParent._tag === 'select') {
-        selectValue = ReactDOMSelect.getSelectValueContext(selectParent);
-      }
-    }
-
-    // If the value is null (e.g., no specified value or after initial mount)
+    // If context key is null (e.g., no specified value or after initial mount)
     // or missing (e.g., for <datalist>), we don't change props.selected
     var selected = null;
     if (selectValue != null) {
@@ -66,17 +57,8 @@ var ReactDOMOption = {
     inst._wrapperState = {selected: selected};
   },
 
-  postMountWrapper: function(inst) {
-    // value="" should make a value attribute (#6219)
-    var props = inst._currentElement.props;
-    if (props.value != null) {
-      var node = ReactDOMComponentTree.getNodeFromInstance(inst);
-      node.setAttribute('value', props.value);
-    }
-  },
-
-  getNativeProps: function(inst, props) {
-    var nativeProps = Object.assign({selected: undefined, children: undefined}, props);
+  getNativeProps: function(inst, props, context) {
+    var nativeProps = assign({selected: undefined, children: undefined}, props);
 
     // Read state only from initial mount because <select> updates value
     // manually; we need the initial state only for server rendering

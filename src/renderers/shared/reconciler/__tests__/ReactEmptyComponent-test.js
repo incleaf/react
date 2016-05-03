@@ -1,5 +1,5 @@
 /**
- * Copyright 2014-present, Facebook, Inc.
+ * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -18,11 +18,9 @@ var TogglingComponent;
 
 var reactComponentExpect;
 
-var log;
-
 describe('ReactEmptyComponent', function() {
   beforeEach(function() {
-    jest.resetModuleRegistry();
+    require('mock-modules').dumpCache();
 
     React = require('React');
     ReactDOM = require('ReactDOM');
@@ -30,18 +28,16 @@ describe('ReactEmptyComponent', function() {
 
     reactComponentExpect = require('reactComponentExpect');
 
-    log = jasmine.createSpy();
-
     TogglingComponent = React.createClass({
       getInitialState: function() {
         return {component: this.props.firstComponent};
       },
       componentDidMount: function() {
-        log(ReactDOM.findDOMNode(this));
+        console.log(ReactDOM.findDOMNode(this));
         this.setState({component: this.props.secondComponent});
       },
       componentDidUpdate: function() {
-        log(ReactDOM.findDOMNode(this));
+        console.log(ReactDOM.findDOMNode(this));
       },
       render: function() {
         var Component = this.state.component;
@@ -79,12 +75,14 @@ describe('ReactEmptyComponent', function() {
     expect(function() {
       ReactTestUtils.renderIntoDocument(<Component />);
     }).toThrow(
-      'Component.render(): A valid React element (or null) must be returned. You may ' +
+      'Component.render(): A valid ReactComponent must be returned. You may ' +
       'have returned undefined, an array or some other invalid object.'
     );
   });
 
   it('should be able to switch between rendering null and a normal tag', () => {
+    spyOn(console, 'log');
+
     var instance1 =
       <TogglingComponent
         firstComponent={null}
@@ -99,39 +97,17 @@ describe('ReactEmptyComponent', function() {
     ReactTestUtils.renderIntoDocument(instance1);
     ReactTestUtils.renderIntoDocument(instance2);
 
-    expect(log.argsForCall.length).toBe(4);
-    expect(log.argsForCall[0][0]).toBe(null);
-    expect(log.argsForCall[1][0].tagName).toBe('DIV');
-    expect(log.argsForCall[2][0].tagName).toBe('DIV');
-    expect(log.argsForCall[3][0]).toBe(null);
-  });
-
-  it('should be able to switch in a list of children', () => {
-    var instance1 =
-      <TogglingComponent
-        firstComponent={null}
-        secondComponent={'div'}
-      />;
-
-    ReactTestUtils.renderIntoDocument(
-      <div>
-        {instance1}
-        {instance1}
-        {instance1}
-      </div>
-    );
-
-    expect(log.argsForCall.length).toBe(6);
-    expect(log.argsForCall[0][0]).toBe(null);
-    expect(log.argsForCall[1][0]).toBe(null);
-    expect(log.argsForCall[2][0]).toBe(null);
-    expect(log.argsForCall[3][0].tagName).toBe('DIV');
-    expect(log.argsForCall[4][0].tagName).toBe('DIV');
-    expect(log.argsForCall[5][0].tagName).toBe('DIV');
+    expect(console.log.argsForCall.length).toBe(4);
+    expect(console.log.argsForCall[0][0]).toBe(null);
+    expect(console.log.argsForCall[1][0].tagName).toBe('DIV');
+    expect(console.log.argsForCall[2][0].tagName).toBe('DIV');
+    expect(console.log.argsForCall[3][0]).toBe(null);
   });
 
   it('should distinguish between a script placeholder and an actual script tag',
     () => {
+      spyOn(console, 'log');
+
       var instance1 =
         <TogglingComponent
           firstComponent={null}
@@ -150,17 +126,18 @@ describe('ReactEmptyComponent', function() {
         ReactTestUtils.renderIntoDocument(instance2);
       }).not.toThrow();
 
-      expect(log.argsForCall.length).toBe(4);
-      expect(log.argsForCall[0][0]).toBe(null);
-      expect(log.argsForCall[1][0].tagName).toBe('SCRIPT');
-      expect(log.argsForCall[2][0].tagName).toBe('SCRIPT');
-      expect(log.argsForCall[3][0]).toBe(null);
+      expect(console.log.argsForCall.length).toBe(4);
+      expect(console.log.argsForCall[0][0]).toBe(null);
+      expect(console.log.argsForCall[1][0].tagName).toBe('SCRIPT');
+      expect(console.log.argsForCall[2][0].tagName).toBe('SCRIPT');
+      expect(console.log.argsForCall[3][0]).toBe(null);
     }
   );
 
-  it('should have findDOMNode return null when multiple layers of composite ' +
-    'components render to the same null placeholder',
-    () => {
+  it('should have getDOMNode return null when multiple layers of composite ' +
+    'components render to the same null placeholder', () => {
+      spyOn(console, 'log');
+
       var GrandChild = React.createClass({
         render: function() {
           return null;
@@ -191,11 +168,11 @@ describe('ReactEmptyComponent', function() {
         ReactTestUtils.renderIntoDocument(instance2);
       }).not.toThrow();
 
-      expect(log.argsForCall.length).toBe(4);
-      expect(log.argsForCall[0][0].tagName).toBe('DIV');
-      expect(log.argsForCall[1][0]).toBe(null);
-      expect(log.argsForCall[2][0]).toBe(null);
-      expect(log.argsForCall[3][0].tagName).toBe('DIV');
+      expect(console.log.argsForCall.length).toBe(4);
+      expect(console.log.argsForCall[0][0].tagName).toBe('DIV');
+      expect(console.log.argsForCall[1][0]).toBe(null);
+      expect(console.log.argsForCall[2][0]).toBe(null);
+      expect(console.log.argsForCall[3][0].tagName).toBe('DIV');
     }
   );
 
@@ -299,12 +276,12 @@ describe('ReactEmptyComponent', function() {
 
     ReactDOM.render(<Empty />, container);
     var noscript1 = container.firstChild;
-    expect(noscript1.nodeName).toBe('#comment');
+    expect(noscript1.tagName).toBe('NOSCRIPT');
 
     // This update shouldn't create a DOM node
     ReactDOM.render(<Empty />, container);
     var noscript2 = container.firstChild;
-    expect(noscript2.nodeName).toBe('#comment');
+    expect(noscript2.tagName).toBe('NOSCRIPT');
 
     expect(noscript1).toBe(noscript2);
   });

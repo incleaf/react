@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -39,7 +39,7 @@ describe('ReactDOMOption', function() {
 
     expect(node.innerHTML).toBe('1  2');
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain('Only strings and numbers are supported as <option> children.');
+    expect(console.error.calls[0].args[0]).toContain('Only strings and numbers are supported as <option> children.');
   });
 
   it('should warn when passing invalid children', function() {
@@ -48,7 +48,7 @@ describe('ReactDOMOption', function() {
     stub = ReactTestUtils.renderIntoDocument(stub);
 
     expect(console.error.calls.length).toBe(1);
-    expect(console.error.argsForCall[0][0]).toContain(
+    expect(console.error.calls[0].args[0]).toContain(
       'Only strings and numbers are supported as <option> children.'
     );
   });
@@ -70,16 +70,5 @@ describe('ReactDOMOption', function() {
 
     var node = ReactDOM.findDOMNode(stub);
     expect(node.innerHTML).toBe('foobar');
-  });
-
-  it('should set attribute for empty value', function() {
-    var container = document.createElement('div');
-    var option = ReactDOM.render(<option value="" />, container);
-    expect(option.hasAttribute('value')).toBe(true);
-    expect(option.getAttribute('value')).toBe('');
-
-    ReactDOM.render(<option value="lava" />, container);
-    expect(option.hasAttribute('value')).toBe(true);
-    expect(option.getAttribute('value')).toBe('lava');
   });
 });

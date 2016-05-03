@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,9 +11,8 @@
 
 'use strict';
 
-var DOMChildrenOperations = require('DOMChildrenOperations');
 var ReactDOMIDOperations = require('ReactDOMIDOperations');
-var ReactPerf = require('ReactPerf');
+var ReactMount = require('ReactMount');
 
 /**
  * Abstracts away all functionality of the reconciler that requires knowledge of
@@ -25,8 +24,8 @@ var ReactComponentBrowserEnvironment = {
   processChildrenUpdates:
     ReactDOMIDOperations.dangerouslyProcessChildrenUpdates,
 
-  replaceNodeWithMarkup:
-    DOMChildrenOperations.dangerouslyReplaceNodeWithMarkup,
+  replaceNodeWithMarkupByID:
+    ReactDOMIDOperations.dangerouslyReplaceNodeWithMarkupByID,
 
   /**
    * If a particular environment requires that some resources be cleaned up,
@@ -36,16 +35,9 @@ var ReactComponentBrowserEnvironment = {
    * @private
    */
   unmountIDFromEnvironment: function(rootNodeID) {
+    ReactMount.purgeID(rootNodeID);
   },
 
 };
-
-ReactPerf.measureMethods(
-  ReactComponentBrowserEnvironment,
-  'ReactComponentBrowserEnvironment',
-  {
-    replaceNodeWithMarkup: 'replaceNodeWithMarkup',
-  }
-);
 
 module.exports = ReactComponentBrowserEnvironment;

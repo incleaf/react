@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,7 +12,6 @@
 'use strict';
 
 var ReactRef = require('ReactRef');
-var ReactInstrumentation = require('ReactInstrumentation');
 
 /**
  * Helper to call ReactRef.attachRefs with this composite component, split out
@@ -28,58 +27,19 @@ var ReactReconciler = {
    * Initializes the component, renders markup, and registers event listeners.
    *
    * @param {ReactComponent} internalInstance
+   * @param {string} rootID DOM ID of the root node.
    * @param {ReactReconcileTransaction|ReactServerRenderingTransaction} transaction
-   * @param {?object} the containing native component instance
-   * @param {?object} info about the native container
    * @return {?string} Rendered markup to be inserted into the DOM.
    * @final
    * @internal
    */
-  mountComponent: function(
-    internalInstance,
-    transaction,
-    nativeParent,
-    nativeContainerInfo,
-    context
-  ) {
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onBeginReconcilerTimer(
-          internalInstance._debugID,
-          'mountComponent'
-        );
-      }
-    }
-    var markup = internalInstance.mountComponent(
-      transaction,
-      nativeParent,
-      nativeContainerInfo,
-      context
-    );
+  mountComponent: function(internalInstance, rootID, transaction, context) {
+    var markup = internalInstance.mountComponent(rootID, transaction, context);
     if (internalInstance._currentElement &&
         internalInstance._currentElement.ref != null) {
       transaction.getReactMountReady().enqueue(attachRefs, internalInstance);
     }
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onEndReconcilerTimer(
-          internalInstance._debugID,
-          'mountComponent'
-        );
-        ReactInstrumentation.debugTool.onMountComponent(
-          internalInstance._debugID
-        );
-      }
-    }
     return markup;
-  },
-
-  /**
-   * Returns a value that can be passed to
-   * ReactComponentEnvironment.replaceNodeWithMarkup.
-   */
-  getNativeNode: function(internalInstance) {
-    return internalInstance.getNativeNode();
   },
 
   /**
@@ -88,28 +48,9 @@ var ReactReconciler = {
    * @final
    * @internal
    */
-  unmountComponent: function(internalInstance, safely) {
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onBeginReconcilerTimer(
-          internalInstance._debugID,
-          'unmountComponent'
-        );
-      }
-    }
+  unmountComponent: function(internalInstance) {
     ReactRef.detachRefs(internalInstance, internalInstance._currentElement);
-    internalInstance.unmountComponent(safely);
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onEndReconcilerTimer(
-          internalInstance._debugID,
-          'unmountComponent'
-        );
-        ReactInstrumentation.debugTool.onUnmountComponent(
-          internalInstance._debugID
-        );
-      }
-    }
+    internalInstance.unmountComponent();
   },
 
   /**
@@ -142,15 +83,6 @@ var ReactReconciler = {
       return;
     }
 
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onBeginReconcilerTimer(
-          internalInstance._debugID,
-          'receiveComponent'
-        );
-      }
-    }
-
     var refsChanged = ReactRef.shouldUpdateRefs(
       prevElement,
       nextElement
@@ -167,18 +99,6 @@ var ReactReconciler = {
         internalInstance._currentElement.ref != null) {
       transaction.getReactMountReady().enqueue(attachRefs, internalInstance);
     }
-
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onEndReconcilerTimer(
-          internalInstance._debugID,
-          'receiveComponent'
-        );
-        ReactInstrumentation.debugTool.onUpdateComponent(
-          internalInstance._debugID
-        );
-      }
-    }
   },
 
   /**
@@ -192,26 +112,7 @@ var ReactReconciler = {
     internalInstance,
     transaction
   ) {
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onBeginReconcilerTimer(
-          internalInstance._debugID,
-          'performUpdateIfNecessary'
-        );
-      }
-    }
     internalInstance.performUpdateIfNecessary(transaction);
-    if (__DEV__) {
-      if (internalInstance._debugID !== 0) {
-        ReactInstrumentation.debugTool.onEndReconcilerTimer(
-          internalInstance._debugID,
-          'performUpdateIfNecessary'
-        );
-        ReactInstrumentation.debugTool.onUpdateComponent(
-          internalInstance._debugID
-        );
-      }
-    }
   },
 
 };

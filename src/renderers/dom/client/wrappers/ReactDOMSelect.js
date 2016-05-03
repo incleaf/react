@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,16 +11,15 @@
 
 'use strict';
 
-var DisabledInputUtils = require('DisabledInputUtils');
 var LinkedValueUtils = require('LinkedValueUtils');
-var ReactDOMComponentTree = require('ReactDOMComponentTree');
+var ReactMount = require('ReactMount');
 var ReactUpdates = require('ReactUpdates');
 
+var assign = require('Object.assign');
 var warning = require('warning');
 
-var didWarnValueLink = false;
-var didWarnValueNull = false;
-var didWarnValueDefaultValue = false;
+var valueContextKey =
+  '__ReactDOMSelect_value$' + Math.random().toString(36).slice(2);
 
 function updateOptionsIfPendingUpdateAndMounted() {
   if (this._rootNodeID && this._wrapperState.pendingUpdate) {
@@ -45,19 +44,6 @@ function getDeclarationErrorAddendum(owner) {
   return '';
 }
 
-function warnIfValueIsNull(props) {
-  if (props != null && props.value === null && !didWarnValueNull) {
-    warning(
-      false,
-      '`value` prop on `select` should not be null. ' +
-      'Consider using the empty string to clear the component or `undefined` ' +
-      'for uncontrolled components.'
-    );
-
-    didWarnValueNull = true;
-  }
-}
-
 var valuePropNames = ['value', 'defaultValue'];
 
 /**
@@ -71,14 +57,6 @@ function checkSelectPropTypes(inst, props) {
     props,
     owner
   );
-
-  if (props.valueLink !== undefined && !didWarnValueLink) {
-    warning(
-      false,
-      '`valueLink` prop on `select` is deprecated; set `value` and `onChange` instead.'
-    );
-    didWarnValueLink = true;
-  }
 
   for (var i = 0; i < valuePropNames.length; i++) {
     var propName = valuePropNames[i];
@@ -113,7 +91,7 @@ function checkSelectPropTypes(inst, props) {
  */
 function updateOptions(inst, multiple, propValue) {
   var selectedValue, i;
-  var options = ReactDOMComponentTree.getNodeFromInstance(inst).options;
+  var options = ReactMount.getNode(inst._rootNodeID).options;
 
   if (multiple) {
     selectedValue = {};
@@ -158,8 +136,10 @@ function updateOptions(inst, multiple, propValue) {
  * selected.
  */
 var ReactDOMSelect = {
-  getNativeProps: function(inst, props) {
-    return Object.assign({}, DisabledInputUtils.getNativeProps(inst, props), {
+  valueContextKey: valueContextKey,
+
+  getNativeProps: function(inst, props, context) {
+    return assign({}, props, {
       onChange: inst._wrapperState.onChange,
       value: undefined,
     });
@@ -168,49 +148,30 @@ var ReactDOMSelect = {
   mountWrapper: function(inst, props) {
     if (__DEV__) {
       checkSelectPropTypes(inst, props);
-      warnIfValueIsNull(props);
     }
 
     var value = LinkedValueUtils.getValue(props);
     inst._wrapperState = {
       pendingUpdate: false,
       initialValue: value != null ? value : props.defaultValue,
-      listeners: null,
       onChange: _handleChange.bind(inst),
       wasMultiple: Boolean(props.multiple),
     };
-
-    if (
-      props.value !== undefined &&
-      props.defaultValue !== undefined &&
-      !didWarnValueDefaultValue
-    ) {
-      warning(
-        false,
-        'Select elements must be either controlled or uncontrolled ' +
-        '(specify either the value prop, or the defaultValue prop, but not ' +
-        'both). Decide between using a controlled or uncontrolled select ' +
-        'element and remove one of these props. More info: ' +
-        'https://fb.me/react-controlled-components'
-      );
-      didWarnValueDefaultValue = true;
-    }
   },
 
-  getSelectValueContext: function(inst) {
-    // ReactDOMOption looks at this initial value so the initial generated
-    // markup has correct `selected` attributes
-    return inst._wrapperState.initialValue;
+  processChildContext: function(inst, props, context) {
+    // Pass down initial value so initial generated markup has correct
+    // `selected` attributes
+    var childContext = assign({}, context);
+    childContext[valueContextKey] = inst._wrapperState.initialValue;
+    return childContext;
   },
 
   postUpdateWrapper: function(inst) {
     var props = inst._currentElement.props;
-    if (__DEV__) {
-      warnIfValueIsNull(props);
-    }
 
     // After the initial mount, we control selected-ness manually so don't pass
-    // this value down
+    // the context value down
     inst._wrapperState.initialValue = undefined;
 
     var wasMultiple = inst._wrapperState.wasMultiple;
@@ -236,9 +197,7 @@ function _handleChange(event) {
   var props = this._currentElement.props;
   var returnValue = LinkedValueUtils.executeOnChange(props, event);
 
-  if (this._rootNodeID) {
-    this._wrapperState.pendingUpdate = true;
-  }
+  this._wrapperState.pendingUpdate = true;
   ReactUpdates.asap(updateOptionsIfPendingUpdateAndMounted, this);
   return returnValue;
 }

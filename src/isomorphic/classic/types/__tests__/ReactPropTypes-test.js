@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-present, Facebook, Inc.
+ * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -138,14 +138,6 @@ describe('ReactPropTypes', function() {
   });
 
   describe('ArrayOf Type', function() {
-    it('should fail for invalid argument', function() {
-      typeCheckFail(
-        PropTypes.arrayOf({ foo: PropTypes.string }),
-        { foo: 'bar' },
-        'Property `testProp` of component `testComponent` has invalid PropType notation inside arrayOf.'
-      );
-    });
-
     it('should support the arrayOf propTypes', function() {
       typeCheckPass(PropTypes.arrayOf(PropTypes.number), [1, 2, 3]);
       typeCheckPass(PropTypes.arrayOf(PropTypes.string), ['a', 'b', 'c']);
@@ -241,6 +233,7 @@ describe('ReactPropTypes', function() {
           return <div>{this.props.label}</div>;
         },
       });
+      spyOn(console, 'error');
     });
 
     it('should support components', () => {
@@ -257,8 +250,6 @@ describe('ReactPropTypes', function() {
     });
 
     it('should be able to define a single child as label', () => {
-      spyOn(console, 'error');
-
       var instance = <Component label={<div />} />;
       instance = ReactTestUtils.renderIntoDocument(instance);
 
@@ -266,8 +257,6 @@ describe('ReactPropTypes', function() {
     });
 
     it('should warn when passing no label and isRequired is set', () => {
-      spyOn(console, 'error');
-
       var instance = <Component />;
       instance = ReactTestUtils.renderIntoDocument(instance);
 
@@ -472,14 +461,6 @@ describe('ReactPropTypes', function() {
   });
 
   describe('ObjectOf Type', function() {
-    it('should fail for invalid argument', function() {
-      typeCheckFail(
-        PropTypes.objectOf({ foo: PropTypes.string }),
-        { foo: 'bar' },
-        'Property `testProp` of component `testComponent` has invalid PropType notation inside objectOf.'
-      );
-    });
-
     it('should support the objectOf propTypes', function() {
       typeCheckPass(PropTypes.objectOf(PropTypes.number), {a: 1, b: 2, c: 3});
       typeCheckPass(
@@ -579,7 +560,7 @@ describe('ReactPropTypes', function() {
       );
     });
 
-    it('should warn for invalid values', function() {
+    it('should warn for invalid strings', function() {
       typeCheckFail(
         PropTypes.oneOf(['red', 'blue']),
         true,
@@ -609,7 +590,6 @@ describe('ReactPropTypes', function() {
     it('should not warn for valid values', function() {
       typeCheckPass(PropTypes.oneOf(['red', 'blue']), 'red');
       typeCheckPass(PropTypes.oneOf(['red', 'blue']), 'blue');
-      typeCheckPass(PropTypes.oneOf(['red', 'blue', NaN]), NaN);
     });
 
     it('should be implicitly optional and not warn without values', function() {
@@ -784,7 +764,8 @@ describe('ReactPropTypes', function() {
 
   describe('Custom validator', function() {
     beforeEach(function() {
-      jest.resetModuleRegistry();
+      require('mock-modules').dumpCache();
+      spyOn(console, 'error');
     });
 
     it('should have been called with the right params', function() {
@@ -822,8 +803,6 @@ describe('ReactPropTypes', function() {
     });
 
     it('should have received the validator\'s return value', function() {
-      spyOn(console, 'error');
-
       var spy = jasmine.createSpy().andCallFake(
         function(props, propName, componentName) {
           if (props[propName] !== 5) {
@@ -849,8 +828,6 @@ describe('ReactPropTypes', function() {
 
     it('should not warn if the validator returned null',
       function() {
-        spyOn(console, 'error');
-
         var spy = jasmine.createSpy().andCallFake(
           function(props, propName, componentName) {
             return null;
