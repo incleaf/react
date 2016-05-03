@@ -10,7 +10,7 @@ var rootIDs = [
 ];
 
 var normal = {
-  rootIDs: rootIDs,
+  rootIDs: rootIDs,`                                             `
   getConfig: function() {
     return {
       commonerConfig: grunt.config.data.pkg.commonerConfig,

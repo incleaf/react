@@ -35,7 +35,7 @@ var shouldUpdateReactComponent = require('shouldUpdateReactComponent');
 var validateDOMNesting = require('validateDOMNesting');
 var warning = require('warning');
 
-var ATTR_NAME = DOMProperty.ID_ATTRIBUTE_NAME;
+var ATTR_NAME = DOMProperty.ID_ATTRIBUTE_NAME; // data-reactid
 var nodeCache = {};
 
 var ELEMENT_NODE_TYPE = 1;
@@ -620,15 +620,16 @@ var ReactMount = {
     );
 
     var nextWrappedElement = new ReactElement(
-      TopLevelWrapper,
+      TopLevelWrapper, // type
       null,
       null,
       null,
       null,
       null,
-      nextElement
+      nextElement //props
     );
 
+    // rootid를 object에 캐싱해두고, 불러옴
     var prevComponent = instancesByReactRootID[getReactRootID(container)];
 
     if (prevComponent) {
@@ -772,7 +773,7 @@ var ReactMount = {
       'unmountComponentAtNode(...): Target container is not a DOM element.'
     );
 
-    var reactRootID = getReactRootID(container);
+    var reactRootID = getReactRootID(container); // XXX: get from nodecache
     var component = instancesByReactRootID[reactRootID];
     if (!component) {
       // Check if the node being unmounted was rendered by React, but isn't a

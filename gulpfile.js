@@ -26,7 +26,7 @@ var paths = {
     ],
     lib: 'build/modules',
   },
-};
+}
 
 var babelOpts = {
   nonStandard: true,

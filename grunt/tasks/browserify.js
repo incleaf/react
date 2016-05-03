@@ -5,7 +5,7 @@ var grunt = require('grunt');
 
 module.exports = function() {
   var config = this.data;
-
+  console.log(this);
   // This task is async...
   var done = this.async();
 
